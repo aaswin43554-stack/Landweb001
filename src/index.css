@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/*
+  Base theme for the GIZ Land Use Transparency Prototype.
+  Design constraints from the build guide: high contrast, large type,
+  large tap targets, assume outdoor use on cheap Android phones.
+*/
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  background-color: #f7f7f5;
+  color: #111114;
+}
+
+button,
+input,
+select {
+  font-size: 1rem;
+}

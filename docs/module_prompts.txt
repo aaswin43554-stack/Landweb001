@@ -1,0 +1,374 @@
+GIZ LAND USE TRANSPARENCY PROTOTYPE — MODULE BUILD PROMPTS (M0–M9)
+===================================================================
+
+Source: GIZ_Land_Prototype_Build_Guide.md
+Use: paste one module's prompt at a time into a build session, in order.
+Each module assumes all prior modules are already built and working.
+
+-------------------------------------------------------------------
+M0 — PROJECT SCAFFOLD & GUARDRAILS
+-------------------------------------------------------------------
+Build Module 0 of the GIZ Land Use Transparency Prototype: the project scaffold.
+
+CONTEXT — what this project is:
+This is a UX concept demonstrator for GIZ, built to show how a simplified,
+citizen-facing layer could sit in front of a real land information system
+(like Laos's LUIS/LaoLandReg). It is NOT connected to any real government
+system, uses NO real data, and makes NO claims of legal or data accuracy.
+Every fact in this prototype must be fabricated and obviously so. This is a
+non-negotiable framing constraint that must be visible in the running app,
+not just in a README — see the full build guide for the "why."
+
+WHAT M0 DELIVERS (scope for this module only):
+A deployed, blank-but-working skeleton. No features (lookup, map, disputes,
+dashboard) yet — those are later modules. M0 proves the pipeline works
+end-to-end and bakes in the guardrails so no later module can accidentally
+ship without them.
+
+Concretely, build:
+
+1. Frontend scaffold
+   - React app (Vite), mobile-first responsive layout
+   - Large tap targets and high-contrast base styling as the default theme
+     (not final polish, just the baseline — icons before text, high
+     contrast, large type, assume outdoor/bright-sun use on cheap Android
+     phones)
+   - A persistent, impossible-to-miss banner/footer component reading
+     something like "Illustrative prototype — fictional data only" that
+     will render on every screen in every future module. This is the single
+     most important guardrail in the whole project — GIZ must never be able
+     to see a screenshot without this visible.
+
+2. Backend
+   - One Supabase project, empty for now (schema comes in M1)
+   - Confirm the app can connect to Supabase (a trivial health-check query
+     is enough — no real tables yet)
+
+3. Hosting
+   - Single Render web service, deployed and reachable at a public URL
+   - No Stripe, no billing UI, no auth tied to real identity — do not
+     scaffold any of these even as placeholders
+
+4. Repo hygiene
+   - Root README stating in the first paragraph that this is a fictional-
+     data-only concept prototype, not a live integration
+
+ACCEPTANCE CRITERIA:
+- Visiting the Render URL shows a blank shell with the fictional-data
+  banner visible
+- Supabase project exists and the app successfully makes at least one
+  round-trip call to it
+- No payment/auth/notification scaffolding present anywhere
+- Repo README leads with the "this is fictional, not connected to real
+  systems" framing
+
+DO NOT BUILD YET: language toggle, navigation between feature screens,
+data model, or any of the four core features — those are M1 onward.
+
+-------------------------------------------------------------------
+M1 — DATA MODEL & SEED DATA
+-------------------------------------------------------------------
+Build Module 1: the data model and seed data for the GIZ Land Use
+Transparency Prototype.
+
+CONTEXT: M0 delivered a deployed skeleton (Render + Supabase connected,
+fictional-data banner in place). This module adds the schema and sample
+data that every later feature reads from. Reminder: this is a concept
+demo — nothing here may resemble real cadastral records.
+
+WHAT M1 DELIVERS:
+
+1. Supabase schema — four tables:
+   - parcels: id, demo_village_name, status (registered/pending/disputed),
+     zone_type (forest/agricultural/residential/disputed), geo_coords
+     (fictional or public-open-data-derived — never real cadastral data)
+   - villages: id, name (fictional), province (fictional),
+     languages_supported
+   - disputes: id, parcel_id, submitted_by (demo user), description,
+     status, fake_reference_number
+   - translations: key, lao_text, sample_minority_language_text
+
+2. Seed script
+   - Generate ~20-30 fictional parcels across 3-4 fictional villages
+   - Invent Lao-style village/parcel names that are clearly fictional
+     and do not resemble real locations
+   - Prefix every ID/reference code with "DEMO-" (or an equally obvious
+     marker) so nobody could mistake this for real records even in a
+     screenshot taken out of context
+   - Seed translations with the core UI strings in Lao plus one
+     placeholder minority language (approximate translation is fine —
+     the point is to demonstrate multilingual capability, not deliver
+     production translation)
+
+ACCEPTANCE CRITERIA:
+- All four tables exist in Supabase with the schema above
+- Seed script runs cleanly and populates 20-30 parcels, 3-4 villages,
+  and translation rows for the core UI strings (seeded disputes are
+  optional at this stage)
+- Every parcel/village ID uses the DEMO- prefix or equivalent
+- Verified via Supabase table editor or a simple query script — no UI
+  work needed yet
+
+DO NOT BUILD YET: navigation, language toggle UI, or any feature
+screens — that's M2 onward.
+
+-------------------------------------------------------------------
+M2 — NAVIGATION SHELL + LANGUAGE TOGGLE
+-------------------------------------------------------------------
+Build Module 2: the navigation shell and language toggle.
+
+CONTEXT: M0 gave us a deployed shell; M1 gave us schema + seed data in
+Supabase. This module wires them together with real navigation and the
+multilingual toggle, but feature screens themselves stay as stubs —
+they get built out in M3-M6.
+
+WHAT M2 DELIVERS:
+
+1. App shell / navigation
+   - Simple navigation between citizen-facing views and a separate
+     field-officer view
+   - One task per screen — no dashboard-as-homepage for citizen views
+   - Stub screens for: parcel lookup, land-use explainer, dispute form,
+     field officer dashboard (placeholders are fine, populated later)
+
+2. Language toggle
+   - Lao ⇄ placeholder minority-language toggle, wired to the
+     `translations` table from M1
+   - Toggling should visibly swap UI copy sourced from that table
+   - Explicitly test Lao script rendering — this is a common failure
+     point, check fonts render all glyphs/diacritics correctly
+
+3. "Last synced" indicator
+   - A static/mock indicator (e.g., "Last synced: 2 hours ago") shown
+     persistently on citizen-facing screens, to conceptually address
+     the real-world offline/connectivity constraint in rural Laos —
+     no real sync logic needed, this is a signal that the constraint
+     was considered
+
+ACCEPTANCE CRITERIA:
+- Can navigate between all four stub screens plus field-officer view
+- Toggling language visibly changes UI strings pulled from `translations`
+- Lao script renders correctly with no missing/boxed glyphs
+- "Last synced" indicator visible on citizen-facing screens
+
+DO NOT BUILD YET: real feature logic inside each screen — that's
+M3 onward.
+
+-------------------------------------------------------------------
+M3 — FEATURE 1: LAND PARCEL STATUS LOOKUP
+-------------------------------------------------------------------
+Build Module 3: the land parcel status lookup feature.
+
+CONTEXT: Nav shell, language toggle, and seeded data are all in place
+(M0-M2). This is the first of the four core citizen-facing features.
+
+WHAT M3 DELIVERS:
+
+- Search by fake village name (text input or picker sourced from
+  seeded villages)
+- A simulated "scan QR-style demo code" trigger — a button that fakes
+  a scan and returns a specific demo parcel (a real camera/QR reader
+  is not required)
+- Result screen: color-coded status (e.g., green=registered,
+  yellow=pending, red=disputed), communicated primarily via icon and
+  color, with minimal supporting text
+- Screen respects the language toggle from M2
+- No jargon in this citizen-facing screen — no "cadastre," "parcel ID
+  schema," or GIS terminology
+
+ACCEPTANCE CRITERIA:
+- Searching a seeded fictional village name returns matching parcel(s)
+  with correct status
+- The simulated QR trigger returns a demo parcel result
+- Status colors/icons are clear and legible at a glance
+- Screen text is available in both toggled languages
+
+DO NOT BUILD YET: map/zone visualization (M4) or dispute submission
+(M5).
+
+-------------------------------------------------------------------
+M4 — FEATURE 2: VISUAL LAND-USE EXPLAINER
+-------------------------------------------------------------------
+Build Module 4: the visual land-use explainer feature.
+
+CONTEXT: Builds on M3's data access patterns and the zone_type field
+from M1.
+
+WHAT M4 DELIVERS:
+
+- A simplified map or zone view (a static image with tappable regions
+  is acceptable — no real GIS/mapping library required) showing zones
+  by type: forest, agricultural, residential, disputed
+- An icon legend for each zone type (icons before text)
+- Tap a zone → plain-language explanation panel (e.g., "This area is
+  marked as farmland," not "zone_type: agricultural")
+- Uses the fictional geo_coords / zone data from seeded parcels (M1)
+
+ACCEPTANCE CRITERIA:
+- At least the 3-4 seeded villages/zones are visually distinguishable
+  on the map view
+- Tapping a zone opens an explanation panel with plain-language text,
+  respecting the language toggle
+- Icon legend matches the zone types actually present in seed data
+
+DO NOT BUILD YET: dispute submission or field officer dashboard —
+that's M5/M6.
+
+-------------------------------------------------------------------
+M5 — FEATURE 3: DISPUTE / QUERY SUBMISSION FLOW
+-------------------------------------------------------------------
+Build Module 5: the dispute/query submission flow.
+
+CONTEXT: Citizens can now look up parcels (M3) and understand zones
+(M4). This module lets them flag a concern about a parcel.
+
+WHAT M5 DELIVERS:
+
+- A short guided multi-step form: large tap targets, icon-led steps,
+  minimal free text. Suggested steps: (1) pick parcel/village,
+  (2) pick concern category via icons, (3) optional short text field,
+  (4) confirm/submit
+- On submit: writes a row to the `disputes` table (M1 schema) and
+  generates/displays a fake reference number (e.g., "DEMO-DSP-0001")
+- A clear "submitted" confirmation screen that explicitly does not
+  claim this reaches any real authority — no real routing
+- Respects the language toggle and the no-jargon rule
+
+ACCEPTANCE CRITERIA:
+- Completing the guided flow creates a new row in `disputes` with a
+  unique fake reference number
+- User sees a confirmation screen showing that reference number
+- Form is usable with large tap targets and minimal typing, suitable
+  for the low-literacy persona
+
+DO NOT BUILD YET: the field officer dashboard (M6) — this module is
+submission only, not viewing/management.
+
+-------------------------------------------------------------------
+M6 — FEATURE 4: FIELD OFFICER DASHBOARD
+-------------------------------------------------------------------
+Build Module 6: the field officer dashboard.
+
+CONTEXT: Disputes now flow into the `disputes` table via M5. This
+module gives the field officer a way to see and manage them.
+
+WHAT M6 DELIVERS:
+
+- A list view of submitted demo disputes with status (extend the
+  disputes.status field or add a display-only status)
+- More technical language is acceptable here — this is the
+  field-officer-facing screen, not citizen-facing
+- Basic filter/sort if trivial (e.g., by village or status) — keep it
+  simple, this is a secondary/narrative screen, not a full
+  case-management tool
+
+ACCEPTANCE CRITERIA:
+- All disputes created during M5 testing appear in this list with
+  correct data
+- The field officer screen is visually/structurally distinct from the
+  citizen-facing screens (can look more "utility")
+
+DO NOT BUILD YET: real casework routing or real notifications — this
+stays a demo queue view only. (The n8n flourish in M7 also stays
+illustrative, not real routing.)
+
+-------------------------------------------------------------------
+M7 — n8n WORKFLOW FLOURISH (OPTIONAL)
+-------------------------------------------------------------------
+Build Module 7: the n8n workflow flourish. This module is explicitly
+marked optional in the build guide — only build it if M0-M6 are solid
+and there is time left before the demo.
+
+CONTEXT: Shows GIZ how dispute routing could work operationally,
+without building any real routing.
+
+WHAT M7 DELIVERS:
+
+- An n8n workflow triggered by a new row appearing in `disputes` (via
+  a Supabase webhook or polling)
+- On trigger, sends a demo email or Slack message simulating "this is
+  how routing could work operationally"
+- The workflow and any UI mention of it must be clearly labeled as
+  illustrative — never imply this is a real routing/notification
+  system
+
+ACCEPTANCE CRITERIA:
+- Submitting a dispute (M5) triggers a visible demo notification
+  (email/Slack) within a reasonable time
+- Any UI or demo narration referencing this explicitly says
+  "illustrative" / "shows how this could work" — never implies live
+  functionality
+
+DO NOT BUILD: any real-world notification to real phone numbers or
+real staff distribution lists — demo recipients only (e.g., a test
+Slack channel or your own inbox).
+
+-------------------------------------------------------------------
+M8 — POLISH & ACCESSIBILITY PASS
+-------------------------------------------------------------------
+Build Module 8: the pre-demo polish and accessibility pass.
+
+CONTEXT: All four core features (M3-M6) exist and work. This is the
+hardening pass across the whole app before it's shown to GIZ.
+
+WHAT M8 DELIVERS:
+
+- An icon/contrast/copy pass across every screen built so far (citizen
+  and field officer): verify high contrast, large type, and
+  consistent icon-led design
+- A mocked "play explanation" audio-icon button (static,
+  non-functional — a visual concept only) on the land-use explainer
+  and/or parcel lookup screens, explicitly flagged in-app or in demo
+  notes as a "phase 2 idea" — do not build real audio
+- A copy simplification pass removing any residual jargon from
+  citizen-facing screens
+- Run the app past someone unfamiliar with the project, note where
+  they got confused, and fix the clearest issues
+
+ACCEPTANCE CRITERIA:
+- Consistent visual language (contrast, icon sizing, type scale)
+  across all screens
+- Mocked audio-icon button present and clearly labeled as a future
+  idea, not working functionality
+- No jargon remaining in citizen-facing copy
+- At least one outside sanity-check pass completed with notes
+  addressed
+
+DO NOT BUILD: new features — this module is refinement only.
+
+-------------------------------------------------------------------
+M9 — GIZ PRESENTATION PACKAGING
+-------------------------------------------------------------------
+Build Module 9: the presentation package. This module is not code —
+it's how the finished prototype gets presented to GIZ.
+
+CONTEXT: The app is feature-complete and polished (M0-M8). This
+module prepares the framing, talking points, and anticipated pushback
+answers so the prototype is presented correctly and doesn't
+over-promise.
+
+WHAT M9 DELIVERS (documents/talking points):
+
+- A short opening framing statement: this is a UX concept prototype
+  built on entirely fictional sample data, illustrating an idea — not
+  a proposal to replace or connect to LUIS
+- The ask framed as a discovery question: "does a usability layer like
+  this address a real gap you see with citizen-facing land
+  information?" — a discovery conversation, not a sales close
+- A word-choice check: avoid using "demo" in ways that imply live
+  functionality with real data; prefer "prototype," "concept," or
+  "mockup"
+- Prepared honest, short answers to the likely pushback: data
+  sovereignty, integration governance, and whether this duplicates
+  existing plans
+- A short internal reminder: never ingest or reference real
+  LUIS/LaoLandReg data or exports, even for inspiration; treat this as
+  a relationship-building exercise, not a revenue pitch
+
+ACCEPTANCE CRITERIA:
+- A one-pager or short script exists covering: opening framing, the
+  discovery-conversation ask, and prepared answers to the three
+  anticipated pushback areas
+- Language throughout the presentation materials avoids implying
+  live/production functionality anywhere
+</content>
