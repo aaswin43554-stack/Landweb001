@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_supabase_supabase__list_projects",
+      "mcp__plugin_supabase_supabase__list_organizations",
+      "Bash(node \"C:\\\\Users\\\\aaswi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-aaswi-OneDrive-Desktop-Work-new-project\\\\50e9801e-030a-4dda-9e01-4bc8c2c647cf\\\\scratchpad\\\\gen_seed.mjs\")",
+      "Bash(node *)"
+    ]
+  }
+}
