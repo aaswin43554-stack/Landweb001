@@ -34,17 +34,14 @@ npm run dev
 Module 0 (project scaffold) — frontend shell, fictional-data banner,
 and Render blueprint are in place.
 
-Module 1 (data model & seed data) — schema and seed SQL are written
-(`supabase/migrations/`, `supabase/seed.sql`) but **not yet applied**.
-Creating the actual Supabase project is on hold pending budget
-approval (~$10/mo). Once approved, see "Supabase setup" below.
+Module 1 (data model & seed data) — the Supabase project is live, the
+schema migration and seed data are applied, and `npm run db:verify`
+passes (4 villages, 28 parcels, 21 translations, 0 disputes).
 
-## Supabase setup (once the project is approved)
+## Supabase setup
 
-1. Create the Supabase project, fill in `.env` from `.env.example`.
-2. Run `supabase/migrations/20260707000000_create_core_tables.sql`
-   then `supabase/seed.sql` (Supabase SQL editor, or `supabase db push`
-   + `supabase db execute -f supabase/seed.sql` if using the CLI).
-3. `npm run db:verify` to confirm row counts and the `DEMO-` id prefix.
-4. Add `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` to the Render
-   service env vars (already declared as `sync: false` in `render.yaml`).
+The project is created and seeded. To point a local checkout at it,
+fill in `.env` from `.env.example` with the project URL and anon key
+(ask a maintainer — not committed to the repo). The Render service
+still needs `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` added to its
+env vars (already declared as `sync: false` in `render.yaml`).

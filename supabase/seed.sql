@@ -70,3 +70,16 @@ insert into translations (key, lao_text, sample_minority_language_text) values
   ('dispute.submit', 'ຍື່ນສົ່ງ', 'Sendo form'),
   ('dispute.reference_label', 'ເລກອ້າງອີງ', 'Refo number')
 on conflict (key) do nothing;
+
+-- M2/M3 additions: nav shell, language toggle chrome, and parcel lookup
+-- screen copy. Same demo-quality disclaimer as above applies.
+insert into translations (key, lao_text, sample_minority_language_text) values
+  ('nav.back_to_citizen', 'ກັບຄືນ', 'Backo to citizeno'),
+  ('lastsynced.value', '2 ຊົ່ວໂມງກ່ອນ', '2 hours agongo'),
+  ('lookup.title', 'ກວດສອບສະຖານະທີ່ດິນ', 'Checko land status'),
+  ('lookup.village_label', 'ເລືອກບ້ານຂອງທ່ານ', 'Picko your baan'),
+  ('lookup.village_placeholder', '-- ເລືອກບ້ານ --', '-- Picko baan --'),
+  ('lookup.no_results', 'ບໍ່ພົບຂໍ້ມູນ. ລອງສະແກນລະຫັດສາທິດ.', 'No datao found. Try scano instead.'),
+  ('lookup.scan_hint', 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ', 'Fako QR scano demo'),
+  ('stub.coming_soon', 'ໜ້ານີ້ກຳລັງພັດທະນາ', 'Pageo comingo soon')
+on conflict (key) do nothing;
