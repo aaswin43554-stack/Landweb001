@@ -47,26 +47,40 @@ on conflict (id) do nothing;
 -- out of scope for this prototype (see module_prompts.txt, M1).
 -- 'min-demo' is an invented placeholder language, not a real minority
 -- language, so no specific language/community's script is misrepresented.
-insert into translations (key, lao_text, sample_minority_language_text) values
-  ('app.title', 'ຂໍ້ມູນທີ່ດິນ', 'Dinfo Baan'),
-  ('banner.fictional_notice', 'ຕົວຢ່າງ - ຂໍ້ມູນສົມມຸດຕິຖານເທົ່ານັ້ນ', 'Sampol - demo data bo tae'),
-  ('nav.parcel_lookup', 'ຄົ້ນຫາທີ່ດິນ', 'Hasearch dinlan'),
-  ('nav.land_use_explainer', 'ອະທິບາຍເຂດທີ່ດິນ', 'Zone-info dinlan'),
-  ('nav.dispute_form', 'ແຈ້ງບັນຫາ', 'Report panha'),
-  ('nav.field_officer', 'ເຈົ້າໜ້າທີ່ພາກສະໜາມ', 'Field officero'),
-  ('status.registered', 'ລົງທະບຽນແລ້ວ', 'Registo-don'),
-  ('status.pending', 'ກຳລັງລໍຖ້າ', 'Waito-lang'),
-  ('status.disputed', 'ມີຂໍ້ຂັດແຍ້ງ', 'Disputo-nay'),
-  ('zone.forest', 'ປ່າໄມ້', 'Foresto-mai'),
-  ('zone.agricultural', 'ເຂດກະສິກຳ', 'Farmo-kasi'),
-  ('zone.residential', 'ເຂດທີ່ຢູ່ອາໄສ', 'Homo-asai'),
-  ('zone.disputed', 'ເຂດຂັດແຍ້ງ', 'Disputo-zone'),
-  ('search.placeholder', 'ພິມຊື່ບ້ານ...', 'Type baan nane...'),
-  ('search.button', 'ຄົ້ນຫາ', 'Searcho'),
-  ('scan.button', 'ສະແກນລະຫັດສາທິດ', 'Scano demo-code'),
-  ('lastsynced.label', 'ອັບເດດຫຼ້າສຸດ', 'Lasto-sync'),
-  ('dispute.step_parcel', 'ເລືອກທີ່ດິນ/ບ້ານ', 'Picko parcel'),
-  ('dispute.step_category', 'ເລືອກປະເພດບັນຫາ', 'Picko category'),
-  ('dispute.submit', 'ຍື່ນສົ່ງ', 'Sendo form'),
-  ('dispute.reference_label', 'ເລກອ້າງອີງ', 'Refo number')
+-- English is included as a baseline reference language alongside Lao.
+insert into translations (key, lao_text, english_text, sample_minority_language_text) values
+  ('app.title', 'ຂໍ້ມູນທີ່ດິນ', 'Land Info', 'Dinfo Baan'),
+  ('banner.fictional_notice', 'ຕົວຢ່າງ - ຂໍ້ມູນສົມມຸດຕິຖານເທົ່ານັ້ນ', 'Sample - demonstration data only', 'Sampol - demo data bo tae'),
+  ('nav.parcel_lookup', 'ຄົ້ນຫາທີ່ດິນ', 'Search Land', 'Hasearch dinlan'),
+  ('nav.land_use_explainer', 'ອະທິບາຍເຂດທີ່ດິນ', 'Land Zone Info', 'Zone-info dinlan'),
+  ('nav.dispute_form', 'ແຈ້ງບັນຫາ', 'Report Issue', 'Report panha'),
+  ('nav.field_officer', 'ເຈົ້າໜ້າທີ່ພາກສະໜາມ', 'Field Officer', 'Field officero'),
+  ('status.registered', 'ລົງທະບຽນແລ້ວ', 'Registered', 'Registo-don'),
+  ('status.pending', 'ກຳລັງລໍຖ້າ', 'Pending', 'Waito-lang'),
+  ('status.disputed', 'ມີຂໍ້ຂັດແຍ້ງ', 'Disputed', 'Disputo-nay'),
+  ('zone.forest', 'ປ່າໄມ້', 'Forest', 'Foresto-mai'),
+  ('zone.agricultural', 'ເຂດກະສິກຳ', 'Agricultural', 'Farmo-kasi'),
+  ('zone.residential', 'ເຂດທີ່ຢູ່ອາໄສ', 'Residential', 'Homo-asai'),
+  ('zone.disputed', 'ເຂດຂັດແຍ້ງ', 'Disputed Zone', 'Disputo-zone'),
+  ('search.placeholder', 'ພິມຊື່ບ້ານ...', 'Type village name...', 'Type baan nane...'),
+  ('search.button', 'ຄົ້ນຫາ', 'Search', 'Searcho'),
+  ('scan.button', 'ສະແກນລະຫັດສາທິດ', 'Scan demo code', 'Scano demo-code'),
+  ('lastsynced.label', 'ອັບເດດຫຼ້າສຸດ', 'Last synced', 'Lasto-sync'),
+  ('dispute.step_parcel', 'ເລືອກທີ່ດິນ/ບ້ານ', 'Select parcel/village', 'Picko parcel'),
+  ('dispute.step_category', 'ເລືອກປະເພດບັນຫາ', 'Select issue category', 'Picko category'),
+  ('dispute.submit', 'ຍື່ນສົ່ງ', 'Submit', 'Sendo form'),
+  ('dispute.reference_label', 'ເລກອ້າງອີງ', 'Reference number', 'Refo number')
+on conflict (key) do nothing;
+
+-- M2/M3 additions: nav shell, language toggle chrome, and parcel lookup
+-- screen copy. Same demo-quality disclaimer as above applies.
+insert into translations (key, lao_text, english_text, sample_minority_language_text) values
+  ('nav.back_to_citizen', 'ກັບຄືນ', 'Back', 'Backo to citizeno'),
+  ('lastsynced.value', '2 ຊົ່ວໂມງກ່ອນ', '2 hours ago', '2 hours agongo'),
+  ('lookup.title', 'ກວດສອບສະຖານະທີ່ດິນ', 'Check land status', 'Checko land status'),
+  ('lookup.village_label', 'ເລືອກບ້ານຂອງທ່ານ', 'Select your village', 'Picko your baan'),
+  ('lookup.village_placeholder', '-- ເລືອກບ້ານ --', '-- Select village --', '-- Picko baan --'),
+  ('lookup.no_results', 'ບໍ່ພົບຂໍ້ມູນ. ລອງສະແກນລະຫັດສາທິດ.', 'No results found. Try scanning the demo code instead.', 'No datao found. Try scano instead.'),
+  ('lookup.scan_hint', 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ', 'Simulate scanning a demo QR code', 'Fako QR scano demo'),
+  ('stub.coming_soon', 'ໜ້ານີ້ກຳລັງພັດທະນາ', 'This page is under development', 'Pageo comingo soon')
 on conflict (key) do nothing;

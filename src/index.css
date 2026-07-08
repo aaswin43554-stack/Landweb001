@@ -21,6 +21,14 @@ body {
   line-height: 1.5;
   background-color: #f7f7f5;
   color: #111114;
+  /* Inter covers Latin text; Noto Sans Lao is the fallback for Lao
+     glyphs/diacritics, which most system font stacks render as boxes. */
+  font-family:
+    'Inter',
+    'Noto Sans Lao',
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
 }
 
 button,
