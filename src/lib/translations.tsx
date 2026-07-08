@@ -1,49 +1,93 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabaseClient'
 
-export type Language = 'lo' | 'min-demo'
+export type Language = 'lo' | 'en' | 'min-demo'
 
-type TranslationEntry = { lao_text: string; sample_minority_language_text: string }
+const LANGUAGE_CYCLE: Language[] = ['lo', 'en', 'min-demo']
+
+type TranslationEntry = { lao_text: string; english_text: string; sample_minority_language_text: string }
 
 // Baked-in copy of the M1 seed data (see supabase/seed.sql) so the UI
 // renders correctly instantly, before the live fetch resolves, and still
 // works if a teammate hasn't configured .env yet.
 const FALLBACK_TRANSLATIONS: Record<string, TranslationEntry> = {
-  'app.title': { lao_text: 'ຂໍ້ມູນທີ່ດິນ', sample_minority_language_text: 'Dinfo Baan' },
+  'app.title': { lao_text: 'ຂໍ້ມູນທີ່ດິນ', english_text: 'Land Info', sample_minority_language_text: 'Dinfo Baan' },
   'banner.fictional_notice': {
     lao_text: 'ຕົວຢ່າງ - ຂໍ້ມູນສົມມຸດຕິຖານເທົ່ານັ້ນ',
+    english_text: 'Sample - demonstration data only',
     sample_minority_language_text: 'Sampol - demo data bo tae',
   },
-  'nav.parcel_lookup': { lao_text: 'ຄົ້ນຫາທີ່ດິນ', sample_minority_language_text: 'Hasearch dinlan' },
-  'nav.land_use_explainer': { lao_text: 'ອະທິບາຍເຂດທີ່ດິນ', sample_minority_language_text: 'Zone-info dinlan' },
-  'nav.dispute_form': { lao_text: 'ແຈ້ງບັນຫາ', sample_minority_language_text: 'Report panha' },
-  'nav.field_officer': { lao_text: 'ເຈົ້າໜ້າທີ່ພາກສະໜາມ', sample_minority_language_text: 'Field officero' },
-  'nav.back_to_citizen': { lao_text: 'ກັບຄືນ', sample_minority_language_text: 'Backo to citizeno' },
-  'status.registered': { lao_text: 'ລົງທະບຽນແລ້ວ', sample_minority_language_text: 'Registo-don' },
-  'status.pending': { lao_text: 'ກຳລັງລໍຖ້າ', sample_minority_language_text: 'Waito-lang' },
-  'status.disputed': { lao_text: 'ມີຂໍ້ຂັດແຍ້ງ', sample_minority_language_text: 'Disputo-nay' },
-  'zone.forest': { lao_text: 'ປ່າໄມ້', sample_minority_language_text: 'Foresto-mai' },
-  'zone.agricultural': { lao_text: 'ເຂດກະສິກຳ', sample_minority_language_text: 'Farmo-kasi' },
-  'zone.residential': { lao_text: 'ເຂດທີ່ຢູ່ອາໄສ', sample_minority_language_text: 'Homo-asai' },
-  'zone.disputed': { lao_text: 'ເຂດຂັດແຍ້ງ', sample_minority_language_text: 'Disputo-zone' },
-  'search.placeholder': { lao_text: 'ພິມຊື່ບ້ານ...', sample_minority_language_text: 'Type baan nane...' },
-  'search.button': { lao_text: 'ຄົ້ນຫາ', sample_minority_language_text: 'Searcho' },
-  'scan.button': { lao_text: 'ສະແກນລະຫັດສາທິດ', sample_minority_language_text: 'Scano demo-code' },
-  'lastsynced.label': { lao_text: 'ອັບເດດຫຼ້າສຸດ', sample_minority_language_text: 'Lasto-sync' },
-  'lastsynced.value': { lao_text: '2 ຊົ່ວໂມງກ່ອນ', sample_minority_language_text: '2 hours agongo' },
-  'dispute.step_parcel': { lao_text: 'ເລືອກທີ່ດິນ/ບ້ານ', sample_minority_language_text: 'Picko parcel' },
-  'dispute.step_category': { lao_text: 'ເລືອກປະເພດບັນຫາ', sample_minority_language_text: 'Picko category' },
-  'dispute.submit': { lao_text: 'ຍື່ນສົ່ງ', sample_minority_language_text: 'Sendo form' },
-  'dispute.reference_label': { lao_text: 'ເລກອ້າງອີງ', sample_minority_language_text: 'Refo number' },
-  'lookup.title': { lao_text: 'ກວດສອບສະຖານະທີ່ດິນ', sample_minority_language_text: 'Checko land status' },
-  'lookup.village_label': { lao_text: 'ເລືອກບ້ານຂອງທ່ານ', sample_minority_language_text: 'Picko your baan' },
-  'lookup.village_placeholder': { lao_text: '-- ເລືອກບ້ານ --', sample_minority_language_text: '-- Picko baan --' },
+  'nav.parcel_lookup': { lao_text: 'ຄົ້ນຫາທີ່ດິນ', english_text: 'Search Land', sample_minority_language_text: 'Hasearch dinlan' },
+  'nav.land_use_explainer': {
+    lao_text: 'ອະທິບາຍເຂດທີ່ດິນ',
+    english_text: 'Land Zone Info',
+    sample_minority_language_text: 'Zone-info dinlan',
+  },
+  'nav.dispute_form': { lao_text: 'ແຈ້ງບັນຫາ', english_text: 'Report Issue', sample_minority_language_text: 'Report panha' },
+  'nav.field_officer': {
+    lao_text: 'ເຈົ້າໜ້າທີ່ພາກສະໜາມ',
+    english_text: 'Field Officer',
+    sample_minority_language_text: 'Field officero',
+  },
+  'nav.back_to_citizen': { lao_text: 'ກັບຄືນ', english_text: 'Back', sample_minority_language_text: 'Backo to citizeno' },
+  'status.registered': { lao_text: 'ລົງທະບຽນແລ້ວ', english_text: 'Registered', sample_minority_language_text: 'Registo-don' },
+  'status.pending': { lao_text: 'ກຳລັງລໍຖ້າ', english_text: 'Pending', sample_minority_language_text: 'Waito-lang' },
+  'status.disputed': { lao_text: 'ມີຂໍ້ຂັດແຍ້ງ', english_text: 'Disputed', sample_minority_language_text: 'Disputo-nay' },
+  'zone.forest': { lao_text: 'ປ່າໄມ້', english_text: 'Forest', sample_minority_language_text: 'Foresto-mai' },
+  'zone.agricultural': { lao_text: 'ເຂດກະສິກຳ', english_text: 'Agricultural', sample_minority_language_text: 'Farmo-kasi' },
+  'zone.residential': { lao_text: 'ເຂດທີ່ຢູ່ອາໄສ', english_text: 'Residential', sample_minority_language_text: 'Homo-asai' },
+  'zone.disputed': { lao_text: 'ເຂດຂັດແຍ້ງ', english_text: 'Disputed Zone', sample_minority_language_text: 'Disputo-zone' },
+  'search.placeholder': {
+    lao_text: 'ພິມຊື່ບ້ານ...',
+    english_text: 'Type village name...',
+    sample_minority_language_text: 'Type baan nane...',
+  },
+  'search.button': { lao_text: 'ຄົ້ນຫາ', english_text: 'Search', sample_minority_language_text: 'Searcho' },
+  'scan.button': { lao_text: 'ສະແກນລະຫັດສາທິດ', english_text: 'Scan demo code', sample_minority_language_text: 'Scano demo-code' },
+  'lastsynced.label': { lao_text: 'ອັບເດດຫຼ້າສຸດ', english_text: 'Last synced', sample_minority_language_text: 'Lasto-sync' },
+  'lastsynced.value': { lao_text: '2 ຊົ່ວໂມງກ່ອນ', english_text: '2 hours ago', sample_minority_language_text: '2 hours agongo' },
+  'dispute.step_parcel': {
+    lao_text: 'ເລືອກທີ່ດິນ/ບ້ານ',
+    english_text: 'Select parcel/village',
+    sample_minority_language_text: 'Picko parcel',
+  },
+  'dispute.step_category': {
+    lao_text: 'ເລືອກປະເພດບັນຫາ',
+    english_text: 'Select issue category',
+    sample_minority_language_text: 'Picko category',
+  },
+  'dispute.submit': { lao_text: 'ຍື່ນສົ່ງ', english_text: 'Submit', sample_minority_language_text: 'Sendo form' },
+  'dispute.reference_label': {
+    lao_text: 'ເລກອ້າງອີງ',
+    english_text: 'Reference number',
+    sample_minority_language_text: 'Refo number',
+  },
+  'lookup.title': { lao_text: 'ກວດສອບສະຖານະທີ່ດິນ', english_text: 'Check land status', sample_minority_language_text: 'Checko land status' },
+  'lookup.village_label': {
+    lao_text: 'ເລືອກບ້ານຂອງທ່ານ',
+    english_text: 'Select your village',
+    sample_minority_language_text: 'Picko your baan',
+  },
+  'lookup.village_placeholder': {
+    lao_text: '-- ເລືອກບ້ານ --',
+    english_text: '-- Select village --',
+    sample_minority_language_text: '-- Picko baan --',
+  },
   'lookup.no_results': {
     lao_text: 'ບໍ່ພົບຂໍ້ມູນ. ລອງສະແກນລະຫັດສາທິດ.',
+    english_text: 'No results found. Try scanning the demo code instead.',
     sample_minority_language_text: 'No datao found. Try scano instead.',
   },
-  'lookup.scan_hint': { lao_text: 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ', sample_minority_language_text: 'Fako QR scano demo' },
-  'stub.coming_soon': { lao_text: 'ໜ້ານີ້ກຳລັງພັດທະນາ', sample_minority_language_text: 'Pageo comingo soon' },
+  'lookup.scan_hint': {
+    lao_text: 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ',
+    english_text: 'Simulate scanning a demo QR code',
+    sample_minority_language_text: 'Fako QR scano demo',
+  },
+  'stub.coming_soon': {
+    lao_text: 'ໜ້ານີ້ກຳລັງພັດທະນາ',
+    english_text: 'This page is under development',
+    sample_minority_language_text: 'Pageo comingo soon',
+  },
 }
 
 type TranslationsContextValue = {
@@ -62,7 +106,7 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     if (!supabase) return
     supabase
       .from('translations')
-      .select('key, lao_text, sample_minority_language_text')
+      .select('key, lao_text, english_text, sample_minority_language_text')
       .then(({ data, error }) => {
         if (error || !data || data.length === 0) return
         setRows((prev) => {
@@ -70,6 +114,7 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
           for (const row of data) {
             next[row.key] = {
               lao_text: row.lao_text,
+              english_text: row.english_text,
               sample_minority_language_text: row.sample_minority_language_text,
             }
           }
@@ -80,11 +125,14 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
 
   function t(key: string): string {
     const entry = rows[key]
-    return entry ? (language === 'lo' ? entry.lao_text : entry.sample_minority_language_text) : key
+    if (!entry) return key
+    if (language === 'lo') return entry.lao_text
+    if (language === 'en') return entry.english_text
+    return entry.sample_minority_language_text
   }
 
   function toggleLanguage() {
-    setLanguage((prev) => (prev === 'lo' ? 'min-demo' : 'lo'))
+    setLanguage((prev) => LANGUAGE_CYCLE[(LANGUAGE_CYCLE.indexOf(prev) + 1) % LANGUAGE_CYCLE.length])
   }
 
   return (

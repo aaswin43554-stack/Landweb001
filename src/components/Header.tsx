@@ -1,3 +1,4 @@
+import type { Language } from '../lib/translations'
 import { useTranslations } from '../lib/translations'
 import { ArrowLeftIcon, BriefcaseIcon, GlobeIcon } from './icons'
 
@@ -5,6 +6,12 @@ type Props = {
   mode: 'citizen' | 'field-officer'
   onEnterFieldOfficer: () => void
   onExitFieldOfficer: () => void
+}
+
+const LANGUAGE_LABELS: Record<Language, string> = {
+  lo: 'ລາວ',
+  en: 'English',
+  'min-demo': 'Min-demo',
 }
 
 export function Header({ mode, onEnterFieldOfficer, onExitFieldOfficer }: Props) {
@@ -34,7 +41,7 @@ export function Header({ mode, onEnterFieldOfficer, onExitFieldOfficer }: Props)
             className="flex items-center gap-1.5 rounded-full border-2 border-gray-300 px-3 py-2 text-sm font-semibold active:bg-gray-100"
           >
             <GlobeIcon className="w-5 h-5" />
-            {language === 'lo' ? 'ລາວ' : 'Min-demo'}
+            {LANGUAGE_LABELS[language]}
           </button>
 
           {mode === 'citizen' && (
