@@ -88,6 +88,161 @@ const FALLBACK_TRANSLATIONS: Record<string, TranslationEntry> = {
     english_text: 'This page is under development',
     sample_minority_language_text: 'Pageo comingo soon',
   },
+  'explainer.hint': {
+    lao_text: 'ແຕະເຂດສີເພື່ອຮຽນຮູ້ຄວາມໝາຍ',
+    english_text: 'Tap a colored area to learn what it means',
+    sample_minority_language_text: 'Tapo colored area to learno',
+  },
+  'explainer.map_caption': {
+    lao_text: 'ຮູບແບບປະກອບຄຳອະທິບາຍ - ບໍ່ແມ່ນແຜນທີ່ທີ່ຖືກຕ້ອງ',
+    english_text: 'Illustrative layout — not an accurate map',
+    sample_minority_language_text: 'Illustro layout - not real mapo',
+  },
+  'explainer.legend_title': {
+    lao_text: 'ປະເພດເຂດ',
+    english_text: 'Zone types',
+    sample_minority_language_text: 'Zoneo typeso',
+  },
+  'explainer.panel.village_label': {
+    lao_text: 'ບ້ານ',
+    english_text: 'Village',
+    sample_minority_language_text: 'Baano',
+  },
+  'explainer.panel.close': {
+    lao_text: 'ປິດ',
+    english_text: 'Close',
+    sample_minority_language_text: 'Closeo',
+  },
+  'zone_explain.forest': {
+    lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນປ່າໄມ້.',
+    english_text: 'This area is marked as forest land.',
+    sample_minority_language_text: 'This areao is foresto land.',
+  },
+  'zone_explain.agricultural': {
+    lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນກະສິກຳ.',
+    english_text: 'This area is marked as farmland.',
+    sample_minority_language_text: 'This areao is farmo land.',
+  },
+  'zone_explain.residential': {
+    lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນສຳລັບທີ່ຢູ່ອາໄສ.',
+    english_text: 'This area is marked as land for homes.',
+    sample_minority_language_text: 'This areao is homo land.',
+  },
+  'zone_explain.disputed': {
+    lao_text: 'ເຂດນີ້ຖືກໝາຍວ່າມີຂໍ້ຂັດແຍ້ງ.',
+    english_text: 'This area is marked as land under disagreement.',
+    sample_minority_language_text: 'This areao has disagreemento.',
+  },
+  'dispute.step3_title': {
+    lao_text: 'ເພີ່ມລາຍລະອຽດ (ບໍ່ບັງຄັບ)',
+    english_text: 'Add more detail (optional)',
+    sample_minority_language_text: 'Addo detailo (optionalo)',
+  },
+  'dispute.step3_placeholder': {
+    lao_text: 'ພິມລາຍລະອຽດເພີ່ມເຕີມທີ່ນີ້ (ບໍ່ບັງຄັບ)',
+    english_text: 'Type any extra detail here (optional)',
+    sample_minority_language_text: 'Typeo detailo here (optionalo)',
+  },
+  'dispute.step4_title': {
+    lao_text: 'ກວດສອບ ແລະ ຍື່ນສົ່ງ',
+    english_text: 'Review and submit',
+    sample_minority_language_text: 'Reviewo and sendo',
+  },
+  'dispute.parcel_label': {
+    lao_text: 'ເລືອກທີ່ດິນ',
+    english_text: 'Pick the parcel',
+    sample_minority_language_text: 'Picko the landplot',
+  },
+  'dispute.no_parcels': {
+    lao_text: 'ບໍ່ພົບທີ່ດິນສຳລັບບ້ານນີ້.',
+    english_text: 'No parcels found for this village.',
+    sample_minority_language_text: 'No landplot foundo for this baano.',
+  },
+  'dispute.back': {
+    lao_text: 'ກັບຄືນ',
+    english_text: 'Back',
+    sample_minority_language_text: 'Backo',
+  },
+  'dispute.next': {
+    lao_text: 'ຕໍ່ໄປ',
+    english_text: 'Next',
+    sample_minority_language_text: 'Nexto',
+  },
+  'dispute.category.boundary': {
+    lao_text: 'ບັນຫາຂອບເຂດທີ່ດິນ',
+    english_text: 'Boundary problem',
+    sample_minority_language_text: 'Boundaryo problemo',
+  },
+  'dispute.category.wrong_info': {
+    lao_text: 'ຂໍ້ມູນທີ່ສະແດງບໍ່ຖືກຕ້ອງ',
+    english_text: 'Wrong information shown',
+    sample_minority_language_text: 'Wrongo infoo shown',
+  },
+  'dispute.category.ownership': {
+    lao_text: 'ໃຜເປັນເຈົ້າຂອງທີ່ດິນນີ້',
+    english_text: 'Who owns this land',
+    sample_minority_language_text: 'Whoo owno this land',
+  },
+  'dispute.category.other': {
+    lao_text: 'ບັນຫາອື່ນໆ',
+    english_text: 'Something else',
+    sample_minority_language_text: 'Somethingo elseo',
+  },
+  'dispute.note_label': {
+    lao_text: 'ລາຍລະອຽດເພີ່ມເຕີມ (ບໍ່ບັງຄັບ)',
+    english_text: 'Extra detail (optional)',
+    sample_minority_language_text: 'Extrao detailo (optionalo)',
+  },
+  'dispute.review_village': {
+    lao_text: 'ບ້ານ',
+    english_text: 'Village',
+    sample_minority_language_text: 'Baano',
+  },
+  'dispute.review_parcel': {
+    lao_text: 'ທີ່ດິນ',
+    english_text: 'Parcel',
+    sample_minority_language_text: 'Landploto',
+  },
+  'dispute.review_category': {
+    lao_text: 'ບັນຫາ',
+    english_text: 'Issue',
+    sample_minority_language_text: 'Issueo',
+  },
+  'dispute.review_note': {
+    lao_text: 'ລາຍລະອຽດ',
+    english_text: 'Detail',
+    sample_minority_language_text: 'Detailo',
+  },
+  'dispute.review_note_empty': {
+    lao_text: 'ບໍ່ໄດ້ເພີ່ມ',
+    english_text: 'None added',
+    sample_minority_language_text: 'Noneo addedo',
+  },
+  'dispute.submit_error': {
+    lao_text: 'ມີຂໍ້ຜິດພາດ. ກະລຸນາລອງໃໝ່.',
+    english_text: 'Something went wrong. Please try again.',
+    sample_minority_language_text: 'Somethingo wrongo. Try againo.',
+  },
+  'dispute.confirmation_title': {
+    lao_text: 'ຍື່ນສົ່ງແລ້ວ',
+    english_text: 'Submitted',
+    sample_minority_language_text: 'Submittedo',
+  },
+  'dispute.confirmation_body': {
+    lao_text: 'ບັນທຶກຄວາມກັງວົນຂອງທ່ານແລ້ວ.',
+    english_text: 'Your concern has been recorded.',
+    sample_minority_language_text: 'Your concerno is recordedo.',
+  },
+  'dispute.confirmation_disclaimer': {
+    lao_text: 'ນີ້ແມ່ນຕົວຢ່າງສາທິດເທົ່ານັ້ນ. ມັນບໍ່ໄດ້ສົ່ງຄວາມກັງວົນຂອງທ່ານໄປຫາຫ້ອງການທີ່ດິນ ຫຼື ອົງການໃດໆທີ່ແທ້ຈິງ.',
+    english_text: 'This is a prototype demo. It does not send your concern to any real land office or authority.',
+    sample_minority_language_text: 'This is demoo only. It bo sendo to any realo officeo.',
+  },
+  'dispute.confirmation_new': {
+    lao_text: 'ຍື່ນສົ່ງອີກ',
+    english_text: 'Submit another',
+    sample_minority_language_text: 'Sendo anothero',
+  },
 }
 
 type TranslationsContextValue = {

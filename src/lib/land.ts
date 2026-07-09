@@ -51,3 +51,42 @@ export async function fetchDemoScanParcel(): Promise<Parcel | null> {
   if (error || !data) return null
   return data as Parcel
 }
+
+export async function fetchAllParcels(): Promise<Parcel[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('parcels').select(PARCEL_COLUMNS).order('id')
+  if (error || !data) return []
+  return data as Parcel[]
+}
+
+export type DisputeCategory = 'boundary' | 'wrong_info' | 'ownership' | 'other'
+
+// Plain-English labels folded into the disputes.description column, since
+// the M1 schema has no separate category field. The field-officer view
+// (M6) is allowed more technical language, so this is fine to read raw.
+const DISPUTE_CATEGORY_LABELS: Record<DisputeCategory, string> = {
+  boundary: 'Boundary problem',
+  wrong_info: 'Wrong information shown',
+  ownership: 'Ownership question',
+  other: 'Other concern',
+}
+
+// No auth/real identity in this prototype (see M0 guardrails), so every
+// submission is attributed to a fixed demo citizen rather than a real name.
+const DEMO_SUBMITTER = 'demo-citizen'
+
+export async function createDispute(input: {
+  parcelId: string
+  category: DisputeCategory
+  note: string
+}): Promise<{ fakeReferenceNumber: string } | null> {
+  if (!supabase) return null
+  const description = [DISPUTE_CATEGORY_LABELS[input.category], input.note.trim()].filter(Boolean).join(' — ')
+  const { data, error } = await supabase
+    .from('disputes')
+    .insert({ parcel_id: input.parcelId, submitted_by: DEMO_SUBMITTER, description })
+    .select('fake_reference_number')
+    .single()
+  if (error || !data) return null
+  return { fakeReferenceNumber: data.fake_reference_number as string }
+}

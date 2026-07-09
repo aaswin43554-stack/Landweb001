@@ -84,3 +84,40 @@ insert into translations (key, lao_text, english_text, sample_minority_language_
   ('lookup.scan_hint', 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ', 'Simulate scanning a demo QR code', 'Fako QR scano demo'),
   ('stub.coming_soon', 'ໜ້ານີ້ກຳລັງພັດທະນາ', 'This page is under development', 'Pageo comingo soon')
 on conflict (key) do nothing;
+
+-- M4/M5 additions: land-use explainer map/legend/panel copy and the
+-- guided dispute submission wizard. Same demo-quality disclaimer as above
+-- applies to the Lao and placeholder minority-language text.
+insert into translations (key, lao_text, english_text, sample_minority_language_text) values
+  ('explainer.hint', 'ແຕະເຂດສີເພື່ອຮຽນຮູ້ຄວາມໝາຍ', 'Tap a colored area to learn what it means', 'Tapo colored area to learno'),
+  ('explainer.map_caption', 'ຮູບແບບປະກອບຄຳອະທິບາຍ - ບໍ່ແມ່ນແຜນທີ່ທີ່ຖືກຕ້ອງ', 'Illustrative layout — not an accurate map', 'Illustro layout - not real mapo'),
+  ('explainer.legend_title', 'ປະເພດເຂດ', 'Zone types', 'Zoneo typeso'),
+  ('explainer.panel.village_label', 'ບ້ານ', 'Village', 'Baano'),
+  ('explainer.panel.close', 'ປິດ', 'Close', 'Closeo'),
+  ('zone_explain.forest', 'ເຂດນີ້ຖືກໝາຍເປັນປ່າໄມ້.', 'This area is marked as forest land.', 'This areao is foresto land.'),
+  ('zone_explain.agricultural', 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນກະສິກຳ.', 'This area is marked as farmland.', 'This areao is farmo land.'),
+  ('zone_explain.residential', 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນສຳລັບທີ່ຢູ່ອາໄສ.', 'This area is marked as land for homes.', 'This areao is homo land.'),
+  ('zone_explain.disputed', 'ເຂດນີ້ຖືກໝາຍວ່າມີຂໍ້ຂັດແຍ້ງ.', 'This area is marked as land under disagreement.', 'This areao has disagreemento.'),
+  ('dispute.step3_title', 'ເພີ່ມລາຍລະອຽດ (ບໍ່ບັງຄັບ)', 'Add more detail (optional)', 'Addo detailo (optionalo)'),
+  ('dispute.step3_placeholder', 'ພິມລາຍລະອຽດເພີ່ມເຕີມທີ່ນີ້ (ບໍ່ບັງຄັບ)', 'Type any extra detail here (optional)', 'Typeo detailo here (optionalo)'),
+  ('dispute.step4_title', 'ກວດສອບ ແລະ ຍື່ນສົ່ງ', 'Review and submit', 'Reviewo and sendo'),
+  ('dispute.parcel_label', 'ເລືອກທີ່ດິນ', 'Pick the parcel', 'Picko the landplot'),
+  ('dispute.no_parcels', 'ບໍ່ພົບທີ່ດິນສຳລັບບ້ານນີ້.', 'No parcels found for this village.', 'No landplot foundo for this baano.'),
+  ('dispute.back', 'ກັບຄືນ', 'Back', 'Backo'),
+  ('dispute.next', 'ຕໍ່ໄປ', 'Next', 'Nexto'),
+  ('dispute.category.boundary', 'ບັນຫາຂອບເຂດທີ່ດິນ', 'Boundary problem', 'Boundaryo problemo'),
+  ('dispute.category.wrong_info', 'ຂໍ້ມູນທີ່ສະແດງບໍ່ຖືກຕ້ອງ', 'Wrong information shown', 'Wrongo infoo shown'),
+  ('dispute.category.ownership', 'ໃຜເປັນເຈົ້າຂອງທີ່ດິນນີ້', 'Who owns this land', 'Whoo owno this land'),
+  ('dispute.category.other', 'ບັນຫາອື່ນໆ', 'Something else', 'Somethingo elseo'),
+  ('dispute.note_label', 'ລາຍລະອຽດເພີ່ມເຕີມ (ບໍ່ບັງຄັບ)', 'Extra detail (optional)', 'Extrao detailo (optionalo)'),
+  ('dispute.review_village', 'ບ້ານ', 'Village', 'Baano'),
+  ('dispute.review_parcel', 'ທີ່ດິນ', 'Parcel', 'Landploto'),
+  ('dispute.review_category', 'ບັນຫາ', 'Issue', 'Issueo'),
+  ('dispute.review_note', 'ລາຍລະອຽດ', 'Detail', 'Detailo'),
+  ('dispute.review_note_empty', 'ບໍ່ໄດ້ເພີ່ມ', 'None added', 'Noneo addedo'),
+  ('dispute.submit_error', 'ມີຂໍ້ຜິດພາດ. ກະລຸນາລອງໃໝ່.', 'Something went wrong. Please try again.', 'Somethingo wrongo. Try againo.'),
+  ('dispute.confirmation_title', 'ຍື່ນສົ່ງແລ້ວ', 'Submitted', 'Submittedo'),
+  ('dispute.confirmation_body', 'ບັນທຶກຄວາມກັງວົນຂອງທ່ານແລ້ວ.', 'Your concern has been recorded.', 'Your concerno is recordedo.'),
+  ('dispute.confirmation_disclaimer', 'ນີ້ແມ່ນຕົວຢ່າງສາທິດເທົ່ານັ້ນ. ມັນບໍ່ໄດ້ສົ່ງຄວາມກັງວົນຂອງທ່ານໄປຫາຫ້ອງການທີ່ດິນ ຫຼື ອົງການໃດໆທີ່ແທ້ຈິງ.', 'This is a prototype demo. It does not send your concern to any real land office or authority.', 'This is demoo only. It bo sendo to any realo officeo.'),
+  ('dispute.confirmation_new', 'ຍື່ນສົ່ງອີກ', 'Submit another', 'Sendo anothero')
+on conflict (key) do nothing;
