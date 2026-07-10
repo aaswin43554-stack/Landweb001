@@ -90,3 +90,36 @@ export async function createDispute(input: {
   if (error || !data) return null
   return { fakeReferenceNumber: data.fake_reference_number as string }
 }
+
+// M6 field-officer dashboard. Display-only — there is no RLS update policy
+// on `disputes` for the anon key, so this stays a read-only queue view
+// rather than a case-management tool (matches the M6/M7 "demo queue view
+// only" guardrail in module_prompts.txt).
+export type DisputeStatus = 'submitted' | 'in_review' | 'resolved'
+
+export type Dispute = {
+  id: string
+  parcel_id: string
+  submitted_by: string
+  description: string | null
+  status: DisputeStatus
+  fake_reference_number: string
+  created_at: string
+  parcel: { demo_village_name: string; village_id: string; zone_type: ZoneType } | null
+}
+
+const DISPUTE_COLUMNS =
+  'id, parcel_id, submitted_by, description, status, fake_reference_number, created_at, parcel:parcels(demo_village_name, village_id, zone_type)'
+
+export async function fetchDisputes(): Promise<Dispute[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('disputes')
+    .select(DISPUTE_COLUMNS)
+    .order('created_at', { ascending: false })
+  if (error || !data) return []
+  return data.map((row) => ({
+    ...row,
+    parcel: Array.isArray(row.parcel) ? (row.parcel[0] ?? null) : row.parcel,
+  })) as Dispute[]
+}

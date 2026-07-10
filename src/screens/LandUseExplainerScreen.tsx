@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertIcon, CropIcon, HomeIcon, MapIcon, TreeIcon, XIcon } from '../components/icons'
+import { PlayExplanationButton } from '../components/PlayExplanationButton'
 import { fetchAllParcels, type Parcel, type ZoneType } from '../lib/land'
 import { useTranslations } from '../lib/translations'
 
@@ -195,6 +196,8 @@ export function LandUseExplainerScreen() {
             </div>
 
             <p className="text-base text-gray-800">{t(`zone_explain.${selected.zone_type}`)}</p>
+
+            <PlayExplanationButton />
 
             <div className="text-sm text-gray-500 border-t border-gray-100 pt-3">
               <p>

@@ -185,3 +185,13 @@ export function DotsIcon({ className, style }: IconProps) {
     </svg>
   )
 }
+
+export function SpeakerIcon({ className, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} style={style} aria-hidden="true">
+      <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4v-5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M16.5 9c1 1 1 5 0 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 7c2 2 2 8 0 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}

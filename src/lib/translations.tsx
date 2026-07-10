@@ -243,6 +243,16 @@ const FALLBACK_TRANSLATIONS: Record<string, TranslationEntry> = {
     english_text: 'Submit another',
     sample_minority_language_text: 'Sendo anothero',
   },
+  'audio.play_button': {
+    lao_text: 'ຫຼິ້ນຄຳອະທິບາຍ',
+    english_text: 'Play explanation',
+    sample_minority_language_text: 'Playo explanationo',
+  },
+  'audio.coming_soon_badge': {
+    lao_text: 'ແນວຄິດອະນາຄົດ - ຍັງໃຊ້ບໍ່ໄດ້',
+    english_text: 'Future idea — not yet functional',
+    sample_minority_language_text: 'Futuro ideao - not yeto workingo',
+  },
 }
 
 type TranslationsContextValue = {

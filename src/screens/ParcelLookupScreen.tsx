@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertIcon, CheckCircleIcon, ClockIcon, QrIcon, SearchIcon } from '../components/icons'
+import { PlayExplanationButton } from '../components/PlayExplanationButton'
 import { fetchDemoScanParcel, fetchParcelsByVillage, fetchVillages, type Parcel, type Village } from '../lib/land'
 import { useTranslations } from '../lib/translations'
 
@@ -16,13 +17,16 @@ function ParcelCard({ parcel }: { parcel: Parcel }) {
   const { Icon, bg, border, text } = STATUS_STYLES[parcel.status]
 
   return (
-    <div className={`rounded-2xl border-2 ${border} ${bg} p-4 flex items-center gap-4`}>
-      <Icon className={`w-12 h-12 shrink-0 ${text}`} />
-      <div className="min-w-0">
-        <p className={`text-lg font-bold ${text}`}>{t(`status.${parcel.status}`)}</p>
-        <p className="text-sm text-gray-600">{t(`zone.${parcel.zone_type}`)}</p>
-        <p className="text-xs text-gray-400 mt-1">{parcel.id}</p>
+    <div className={`rounded-2xl border-2 ${border} ${bg} p-4 flex flex-col gap-3`}>
+      <div className="flex items-center gap-4">
+        <Icon className={`w-12 h-12 shrink-0 ${text}`} />
+        <div className="min-w-0">
+          <p className={`text-lg font-bold ${text}`}>{t(`status.${parcel.status}`)}</p>
+          <p className="text-sm text-gray-600">{t(`zone.${parcel.zone_type}`)}</p>
+          <p className="text-xs text-gray-400 mt-1">{parcel.id}</p>
+        </div>
       </div>
+      <PlayExplanationButton />
     </div>
   )
 }

@@ -121,3 +121,10 @@ insert into translations (key, lao_text, english_text, sample_minority_language_
   ('dispute.confirmation_disclaimer', 'ນີ້ແມ່ນຕົວຢ່າງສາທິດເທົ່ານັ້ນ. ມັນບໍ່ໄດ້ສົ່ງຄວາມກັງວົນຂອງທ່ານໄປຫາຫ້ອງການທີ່ດິນ ຫຼື ອົງການໃດໆທີ່ແທ້ຈິງ.', 'This is a prototype demo. It does not send your concern to any real land office or authority.', 'This is demoo only. It bo sendo to any realo officeo.'),
   ('dispute.confirmation_new', 'ຍື່ນສົ່ງອີກ', 'Submit another', 'Sendo anothero')
 on conflict (key) do nothing;
+
+-- M8 additions: copy for the mocked "play explanation" audio-icon concept
+-- button (static, non-functional). See migrations/20260710000000_m8_add_audio_translations.sql.
+insert into translations (key, lao_text, english_text, sample_minority_language_text) values
+  ('audio.play_button', 'ຫຼິ້ນຄຳອະທິບາຍ', 'Play explanation', 'Playo explanationo'),
+  ('audio.coming_soon_badge', 'ແນວຄິດອະນາຄົດ - ຍັງໃຊ້ບໍ່ໄດ້', 'Future idea — not yet functional', 'Futuro ideao - not yeto workingo')
+on conflict (key) do nothing;
