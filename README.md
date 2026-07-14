@@ -31,12 +31,23 @@ npm run dev
 
 ## Status
 
-Module 0 (project scaffold) — frontend shell, fictional-data banner,
-and Render blueprint are in place.
+Modules 0–6, 8, and 9 are built:
 
-Module 1 (data model & seed data) — the Supabase project is live, the
-schema migration and seed data are applied, and `npm run db:verify`
-passes (4 villages, 28 parcels, 21 translations, 0 disputes).
+- **M0** — frontend shell, fictional-data banner, Render blueprint
+- **M1** — Supabase schema and seed data live (`npm run db:verify`
+  passes: 4 villages, 28 parcels, 21 translations)
+- **M2** — navigation shell and Lao / placeholder minority-language /
+  English toggle
+- **M3** — land parcel status lookup
+- **M4** — visual land-use explainer map
+- **M5** — guided dispute/query submission flow
+- **M6** — field officer dashboard
+- **M8** — accessibility/polish pass (mocked "play explanation" audio
+  icon, "last synced" indicator)
+- **M9** — GIZ presentation packet (`docs/giz_presentation_packet.md`)
+
+**M7 (n8n workflow flourish) is not built.** It's explicitly optional
+in the build guide — see `docs/module_prompts.txt`.
 
 ## Supabase setup
 
