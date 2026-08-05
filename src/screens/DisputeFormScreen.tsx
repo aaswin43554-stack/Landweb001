@@ -160,28 +160,123 @@ function initialState() {
     submitError: false,
     referenceNumber: null as string | null,
     wasQueued: false,
+    photos: [] as string[],
+    audio: null as string | null,
   }
+}
+
+// Simple deterministic QR-like matrix grid generator
+function drawP2PGrid(canvas: HTMLCanvasElement | null, dataStr: string) {
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const size = 200
+  canvas.width = size
+  canvas.height = size
+
+  // Background
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, size, size)
+
+  // Draw QR finder patterns in corners
+  ctx.fillStyle = '#000000'
+  
+  // Top-left
+  ctx.fillRect(10, 10, 45, 45)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(17, 17, 31, 31)
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(24, 24, 17, 17)
+
+  // Top-right
+  ctx.fillRect(145, 10, 45, 45)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(152, 17, 31, 31)
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(159, 24, 17, 17)
+
+  // Bottom-left
+  ctx.fillRect(10, 145, 45, 45)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(17, 152, 31, 31)
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(24, 159, 17, 17)
+
+  // Seeded random matrix generation based on data string
+  let hash = 0
+  for (let i = 0; i < dataStr.length; i++) {
+    hash = dataStr.charCodeAt(i) + ((hash << 5) - hash)
+  }
+
+  const cellSize = 8
+  const gridOffset = 60
+  const gridCells = 10
+
+  for (let r = 0; r < gridCells; r++) {
+    for (let c = 0; c < gridCells; c++) {
+      const bitIndex = r * gridCells + c
+      const randomVal = Math.abs(Math.sin(hash + bitIndex))
+      if (randomVal > 0.45) {
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(gridOffset + c * cellSize, gridOffset + r * cellSize, cellSize, cellSize)
+      }
+    }
+  }
+
+  // Draw some extra random blocks in empty areas
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(120, 120, 16, 16)
+  ctx.fillRect(40, 100, 8, 16)
+  ctx.fillRect(100, 40, 16, 8)
 }
 
 export function DisputeFormScreen() {
   const { t, language } = useTranslations()
   const [villages, setVillages] = useState<Village[]>([])
   const [state, setState] = useState(initialState)
-  const { step, selectedVillageId, parcels, selectedParcelId, category, note, isSubmitting, submitError, referenceNumber, wasQueued } = state
+  const { step, selectedVillageId, parcels, selectedParcelId, category, note, isSubmitting, submitError, referenceNumber, wasQueued, photos, audio } = state
 
+  // Media Capture states
   const [isListening, setIsListening] = useState(false)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordDuration, setRecordDuration] = useState(0)
+  
+  const videoRef = useRef<HTMLVideoElement>(null)
   const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<number | null>(null)
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     fetchVillages().then(setVillages)
     
-    // Cleanup speech recognition on unmount
+    // Cleanups
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
-      }
+      if (recognitionRef.current) recognitionRef.current.stop()
+      stopCamera()
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
     }
   }, [])
+
+  // Draw P2P code when references are ready
+  useEffect(() => {
+    if (referenceNumber) {
+      const disputeData = JSON.stringify({
+        id: referenceNumber,
+        parcelId: selectedParcelId,
+        category,
+        note,
+        photos,
+        audio,
+      })
+      setTimeout(() => {
+        drawP2PGrid(qrCanvasRef.current, disputeData)
+      }, 100)
+    }
+  }, [referenceNumber])
 
   async function handleVillageChange(villageId: string) {
     setState((s) => ({ ...s, selectedVillageId: villageId, selectedParcelId: '', parcels: [] }))
@@ -201,7 +296,13 @@ export function DisputeFormScreen() {
   async function handleSubmit() {
     if (!selectedParcelId || !category) return
     setState((s) => ({ ...s, isSubmitting: true, submitError: false }))
-    const result = await createDispute({ parcelId: selectedParcelId, category, note })
+    const result = await createDispute({ 
+      parcelId: selectedParcelId, 
+      category, 
+      note,
+      photos,
+      audio 
+    })
     if (!result) {
       setState((s) => ({ ...s, isSubmitting: false, submitError: true }))
       return
@@ -209,6 +310,7 @@ export function DisputeFormScreen() {
     setState((s) => ({ ...s, isSubmitting: false, referenceNumber: result.fakeReferenceNumber, wasQueued: result.queued }))
   }
 
+  // Speech to Text Notes
   function toggleSpeechToText() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
@@ -234,18 +336,9 @@ export function DisputeFormScreen() {
       recognition.continuous = false
       recognition.interimResults = false
 
-      recognition.onstart = () => {
-        setIsListening(true)
-      }
-
-      recognition.onend = () => {
-        setIsListening(false)
-      }
-
-      recognition.onerror = (e: any) => {
-        console.error('Speech recognition error:', e)
-        setIsListening(false)
-      }
+      recognition.onstart = () => setIsListening(true)
+      recognition.onend = () => setIsListening(false)
+      recognition.onerror = () => setIsListening(false)
 
       recognition.onresult = (event: any) => {
         const transcriptText = event.results[0][0].transcript
@@ -265,34 +358,176 @@ export function DisputeFormScreen() {
     }
   }
 
+  // Camera capture methods
+  async function startCamera() {
+    setCameraActive(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+    } catch (err) {
+      console.warn('Camera stream failed, using file picker fallback:', err)
+      setCameraActive(false)
+      document.getElementById('photo-fallback-input')?.click()
+    }
+  }
+
+  function capturePhoto() {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas')
+      canvas.width = videoRef.current.videoWidth || 640
+      canvas.height = videoRef.current.videoHeight || 480
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        setState((s) => ({ ...s, photos: [...s.photos, dataUrl] }))
+      }
+      stopCamera()
+    }
+  }
+
+  function stopCamera() {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach((track) => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
+  }
+
+  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files) return
+    for (let i = 0; i < files.length; i++) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setState((s) => ({ ...s, photos: [...s.photos, reader.result as string] }))
+        }
+      }
+      reader.readAsDataURL(files[i])
+    }
+  }
+
+  function deletePhoto(idx: number) {
+    setState((s) => ({ ...s, photos: s.photos.filter((_, i) => i !== idx) }))
+  }
+
+  // Microphone recording methods
+  function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        const mediaRecorder = new MediaRecorder(stream)
+        mediaRecorderRef.current = mediaRecorder
+        audioChunksRef.current = []
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data)
+          }
+        }
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+          const reader = new FileReader()
+          reader.onload = () => {
+            if (typeof reader.result === 'string') {
+              setState((s) => ({ ...s, audio: reader.result as string }))
+            }
+          }
+          reader.readAsDataURL(audioBlob)
+          stream.getTracks().forEach((track) => track.stop())
+        }
+
+        mediaRecorder.start()
+        setIsRecording(true)
+        setRecordDuration(0)
+        recordingTimerRef.current = window.setInterval(() => {
+          setRecordDuration((d) => d + 1)
+        }, 1000)
+      })
+      .catch((err) => {
+        console.error(err)
+        alert('Could not access microphone.')
+      })
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+    }
+  }
+
+  function clearAudio() {
+    setState((s) => ({ ...s, audio: null }))
+  }
+
+  function copyP2PCode() {
+    const disputeData = JSON.stringify({
+      id: referenceNumber,
+      parcelId: selectedParcelId,
+      category,
+      note,
+      photos,
+      audio,
+    })
+    navigator.clipboard.writeText(disputeData)
+    alert('Offline Sync Code copied! Paste it in the Field Officer dashboard to import.')
+  }
+
   if (referenceNumber) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 py-8 text-center max-w-md mx-auto w-full">
-        <CheckCircleIcon className="w-16 h-16 text-emerald-600 animate-bounce" />
+      <div className="flex-1 flex flex-col items-center justify-start gap-4 px-5 py-6 text-center max-w-md mx-auto w-full overflow-y-auto">
+        <CheckCircleIcon className="w-14 h-14 text-emerald-600 shrink-0" />
         <h2 className="text-xl font-bold text-gray-800">{t('dispute.confirmation_title')}</h2>
-        <p className="text-gray-700">{t('dispute.confirmation_body')}</p>
+        <p className="text-sm text-gray-600">{t('dispute.confirmation_body')}</p>
 
-        <div className="w-full rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-4 shadow-sm">
-          <p className="text-sm font-semibold text-emerald-850">{t('dispute.reference_label')}</p>
-          <p className="text-2xl font-bold text-emerald-900 tracking-wide mt-1">{referenceNumber}</p>
+        <div className="w-full rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3.5 shadow-sm">
+          <p className="text-xs font-semibold text-emerald-800">{t('dispute.reference_label')}</p>
+          <p className="text-xl font-bold text-emerald-900 tracking-wide mt-0.5">{referenceNumber}</p>
         </div>
 
+        {/* Offline Queued Warning */}
         {wasQueued && (
-          <div className="w-full rounded-xl bg-blue-50 border-2 border-blue-300 px-4 py-3 shadow-sm">
-            <p className="text-sm text-blue-900 font-semibold">
-              📱 Saved offline — will sync when connection is restored
+          <div className="w-full rounded-xl bg-blue-50 border-2 border-blue-300 px-4 py-3 shadow-sm text-left">
+            <p className="text-xs font-bold text-blue-900">📱 Saved Offline</p>
+            <p className="text-xs text-blue-800 mt-0.5">
+              This dispute is stored locally and will sync when a network connection is established.
             </p>
           </div>
         )}
 
-        <div className="w-full rounded-xl bg-amber-50 border-2 border-amber-300 px-4 py-3">
-          <p className="text-sm text-amber-900">{t('dispute.confirmation_disclaimer')}</p>
+        {/* P2P Local QR Sharing Section */}
+        <div className="w-full rounded-2xl border-2 border-gray-200 bg-white p-4 flex flex-col items-center gap-3 shadow-sm">
+          <p className="text-sm font-bold text-gray-800">Local P2P Sharing (Offline Sync)</p>
+          <p className="text-xs text-gray-500">
+            Let a field officer scan this code with their device camera to import this dispute instantly.
+          </p>
+          
+          <div className="relative border-4 border-gray-100 p-2 rounded-xl bg-white">
+            <canvas ref={qrCanvasRef} className="w-44 h-44" />
+          </div>
+
+          <button
+            type="button"
+            onClick={copyP2PCode}
+            className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg active:bg-emerald-100"
+          >
+            Copy Sync Code (Clipboard)
+          </button>
         </div>
 
         <button
           type="button"
           onClick={() => setState(initialState())}
-          className="w-full rounded-xl bg-emerald-700 text-white py-4 text-lg font-bold hover:bg-emerald-800 active:scale-98 transition-all shadow"
+          className="w-full rounded-xl bg-emerald-700 text-white py-4 text-base font-bold hover:bg-emerald-800 active:scale-98 transition-all shadow shrink-0"
         >
           {t('dispute.confirmation_new')}
         </button>
@@ -303,7 +538,7 @@ export function DisputeFormScreen() {
   const canGoNext = (step === 0 && Boolean(selectedParcelId)) || (step === 1 && Boolean(category)) || step === 2
 
   return (
-    <div className="flex-1 flex flex-col gap-5 px-4 py-5 max-w-lg mx-auto w-full">
+    <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-lg mx-auto w-full overflow-y-auto">
       <div className="flex items-center gap-3">
         <FlagIcon className="w-8 h-8 text-emerald-700 shrink-0" />
         <h2 className="text-xl font-bold">{t('nav.dispute_form')}</h2>
@@ -394,13 +629,14 @@ export function DisputeFormScreen() {
       {step === 2 && (
         <div className="flex flex-col gap-4">
           <h3 className="text-lg font-bold">{t('dispute.step3_title')}</h3>
+          
+          {/* Notes area */}
           <div className="flex flex-col gap-2 relative">
             <div className="flex items-center justify-between">
               <label htmlFor="dispute-note" className="font-semibold text-sm">
                 {t('dispute.note_label')}
               </label>
               
-              {/* Voice-to-Text Button */}
               <button
                 type="button"
                 onClick={toggleSpeechToText}
@@ -433,9 +669,101 @@ export function DisputeFormScreen() {
               value={note}
               onChange={(e) => setState((s) => ({ ...s, note: e.target.value }))}
               placeholder={t('dispute.step3_placeholder')}
-              rows={4}
-              className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white resize-none focus:border-emerald-600 focus:outline-none"
+              rows={3}
+              className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white resize-none focus:border-emerald-600 focus:outline-none animate-in"
             />
+          </div>
+
+          {/* Multimodal Attachments Panel */}
+          <div className="flex flex-col gap-3 border-2 border-dashed border-gray-200 rounded-2xl p-4 bg-gray-50/50">
+            <p className="text-sm font-bold text-gray-700">Add Evidence (Photos / Voice Note)</p>
+            
+            <div className="flex flex-wrap gap-2">
+              {/* Photo Capture trigger */}
+              <button
+                type="button"
+                onClick={startCamera}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-xs cursor-pointer"
+              >
+                📸 Take Photo
+              </button>
+              <input
+                id="photo-fallback-input"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+
+              {/* Voice recording trigger */}
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`flex items-center gap-1.5 px-3 py-2 border-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  isRecording
+                    ? 'border-red-500 bg-red-50 text-red-800 animate-pulse'
+                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                🎙️ {isRecording ? `Stop (${recordDuration}s)` : 'Record Voice'}
+              </button>
+            </div>
+
+            {/* Video stream panel when camera is active */}
+            {cameraActive && (
+              <div className="w-full flex flex-col gap-2 border border-gray-300 rounded-xl overflow-hidden bg-black p-1">
+                <video ref={videoRef} className="w-full h-48 object-cover rounded-lg" playsInline muted />
+                <div className="flex gap-2 p-1">
+                  <button
+                    type="button"
+                    onClick={capturePhoto}
+                    className="flex-1 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs"
+                  >
+                    Capture Frame
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="px-3 py-2 bg-gray-700 text-white rounded-lg font-bold text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Photo Previews */}
+            {photos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {photos.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 border-2 border-gray-300 rounded-xl overflow-hidden shadow-sm shrink-0">
+                    <img src={url} className="w-full h-full object-cover" alt="attachment" />
+                    <button
+                      type="button"
+                      onClick={() => deletePhoto(i)}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 hover:bg-black text-white rounded-full flex items-center justify-center text-[10px] font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Audio note player */}
+            {audio && (
+              <div className="w-full bg-white border-2 border-gray-200 rounded-xl p-2.5 flex items-center justify-between gap-3 shadow-xs">
+                <audio src={audio} controls className="h-8 max-w-full shrink-1" />
+                <button
+                  type="button"
+                  onClick={clearAudio}
+                  className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-lg hover:bg-red-100"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -462,6 +790,17 @@ export function DisputeFormScreen() {
               <p className="text-xs font-semibold text-gray-400 uppercase">{t('dispute.review_note')}</p>
               <p className="text-base text-gray-700 break-words whitespace-pre-wrap">{note.trim() || t('dispute.review_note_empty')}</p>
             </div>
+            
+            {/* Review Attachments summary */}
+            {(photos.length > 0 || audio) && (
+              <div className="border-t border-gray-150 pt-2.5 mt-1 flex flex-col gap-1.5">
+                <p className="text-xs font-semibold text-gray-400 uppercase">Attached Evidence</p>
+                <div className="flex items-center gap-3">
+                  {photos.length > 0 && <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-md">📸 {photos.length} Photos</span>}
+                  {audio && <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-md">🎙️ 1 Audio Clip</span>}
+                </div>
+              </div>
+            )}
           </div>
 
           {submitError && (

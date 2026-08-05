@@ -8,10 +8,20 @@ import {
   HomeIcon,
   SearchIcon,
   TreeIcon,
+  XIcon,
 } from '../components/icons'
 import { ConnectionStatus } from '../components/ConnectionStatus'
-import { fetchDisputes, fetchVillages, type Dispute, type DisputeStatus, type Village, type ZoneType } from '../lib/land'
+import {
+  fetchDisputes,
+  fetchVillages,
+  updateDisputeStatus,
+  type Dispute,
+  type DisputeStatus,
+  type Village,
+  type ZoneType,
+} from '../lib/land'
 import { useTranslations } from '../lib/translations'
+import { queueDispute } from '../lib/offlineStorage'
 
 const ZONE_ICONS: Record<ZoneType, typeof TreeIcon> = {
   forest: TreeIcon,
@@ -20,9 +30,6 @@ const ZONE_ICONS: Record<ZoneType, typeof TreeIcon> = {
   disputed: AlertIcon,
 }
 
-// Field-officer screens may use more technical language than the
-// citizen-facing ones (module_prompts.txt, M6), so these labels are
-// plain English rather than sourced from the `translations` table.
 const STATUS_META: Record<DisputeStatus, { label: string; Icon: typeof ClockIcon; text: string; bg: string; border: string }> = {
   submitted: { label: 'Submitted', Icon: ClockIcon, text: 'text-blue-800', bg: 'bg-blue-50', border: 'border-blue-400' },
   in_review: { label: 'In review', Icon: SearchIcon, text: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-400' },
@@ -31,16 +38,37 @@ const STATUS_META: Record<DisputeStatus, { label: string; Icon: typeof ClockIcon
 
 const STATUS_FILTERS: (DisputeStatus | 'all')[] = ['all', 'submitted', 'in_review', 'resolved']
 
-// M5 writes description as "<category label> — <note>" (see
-// DISPUTE_CATEGORY_LABELS in lib/land.ts); split it back apart for display.
-function splitDescription(description: string | null): { category: string; note: string } {
-  if (!description) return { category: 'Uncategorized', note: '' }
-  const [category, ...rest] = description.split(' — ')
-  return { category, note: rest.join(' — ') }
+function splitDescription(description: string | null): { category: string; note: string; remark: string } {
+  if (!description) return { category: 'Uncategorized', note: '', remark: '' }
+  
+  // Extract officer remarks if present
+  let remark = ''
+  let cleanDesc = description
+  const remarkIdx = description.indexOf('\n[Officer Remark:')
+  if (remarkIdx !== -1) {
+    remark = description.slice(remarkIdx + 18, -1)
+    cleanDesc = description.slice(0, remarkIdx)
+  }
+
+  // Split Category and notes
+  const parts = cleanDesc.split(' — ')
+  const category = parts[0] || 'Uncategorized'
+  // Remove evidence indicators from note if present
+  let note = parts.slice(1).join(' — ')
+  const evidenceIdx = note.indexOf(' [Evidence:')
+  if (evidenceIdx !== -1) {
+    note = note.slice(0, evidenceIdx)
+  }
+
+  return { category, note, remark }
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  } catch {
+    return iso
+  }
 }
 
 export function FieldOfficerScreen() {
@@ -52,12 +80,28 @@ export function FieldOfficerScreen() {
   const [statusFilter, setStatusFilter] = useState<DisputeStatus | 'all'>('all')
   const [sortAsc, setSortAsc] = useState(false)
 
-  useEffect(() => {
+  // Drawer / Action States
+  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null)
+  const [actionStatus, setActionStatus] = useState<DisputeStatus>('submitted')
+  const [actionComment, setActionComment] = useState('')
+  const [isSavingAction, setIsSavingAction] = useState(false)
+
+  // P2P import states
+  const [showImportPanel, setShowImportPanel] = useState(false)
+  const [p2pCodeInput, setP2pCodeInput] = useState('')
+  const [importError, setImportError] = useState(false)
+
+  function loadData() {
+    setIsLoading(true)
     Promise.all([fetchDisputes(), fetchVillages()]).then(([d, v]) => {
       setDisputes(d)
       setVillages(v)
       setIsLoading(false)
     })
+  }
+
+  useEffect(() => {
+    loadData()
   }, [])
 
   const filtered = useMemo(() => {
@@ -69,19 +113,147 @@ export function FieldOfficerScreen() {
     )
   }, [disputes, villageFilter, statusFilter, sortAsc])
 
+  // Import Dispute from QR code / text stream
+  function handleImportSubmit() {
+    try {
+      setImportError(false)
+      const data = JSON.parse(p2pCodeInput.trim())
+      if (!data.id || !data.parcelId || !data.category) {
+        setImportError(true)
+        return
+      }
+
+      // Add to local dispute queue
+      queueDispute({
+        parcelId: data.parcelId,
+        category: data.category,
+        note: data.note || '',
+        photos: data.photos || [],
+        audio: data.audio || null,
+      })
+
+      setP2pCodeInput('')
+      setShowImportPanel(false)
+      alert('Dispute imported successfully into local offline queue!')
+      loadData()
+    } catch {
+      setImportError(true)
+    }
+  }
+
+  // Simulate scanning of code
+  function handleSimulatedScan() {
+    // Mock dispute payload
+    const mockPayload = {
+      id: `DEMO-SCAN-${Date.now()}`,
+      parcelId: 'DEMO-PARCEL-0002',
+      category: 'boundary',
+      note: 'Citizen reports fence moved by 3 meters during offline agricultural harvest.',
+      photos: [],
+      audio: null,
+    }
+    setP2pCodeInput(JSON.stringify(mockPayload, null, 2))
+    alert('Simulated QR Code scan successful! Click "Import Dispute" to load into queue.')
+  }
+
+  // Expand dispute card for case management
+  function openDisputeDetails(d: Dispute) {
+    const { remark } = splitDescription(d.description)
+    setSelectedDispute(d)
+    setActionStatus(d.status)
+    setActionComment(remark)
+  }
+
+  // Save dispute action updates
+  async function handleSaveAction() {
+    if (!selectedDispute) return
+    setIsSavingAction(true)
+    const success = await updateDisputeStatus(selectedDispute.id, actionStatus, actionComment.trim())
+    setIsSavingAction(false)
+    if (success) {
+      setSelectedDispute(null)
+      alert('Case resolution updated successfully!')
+      loadData()
+    } else {
+      alert('Error updating case resolution status.')
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col bg-slate-50">
-      <div className="bg-slate-800 text-white px-4 py-5">
-        <div className="flex items-center gap-3 max-w-2xl mx-auto w-full">
-          <BriefcaseIcon className="w-7 h-7 shrink-0" />
-          <div>
-            <h2 className="text-lg font-bold">{t('nav.field_officer')}</h2>
-            <p className="text-sm text-slate-300">Dispute queue — demo data only, not a real case system</p>
+    <div className="flex-1 flex flex-col bg-slate-50 relative">
+      <div className="bg-slate-800 text-white px-4 py-5 shadow-sm">
+        <div className="flex items-center justify-between max-w-2xl mx-auto w-full">
+          <div className="flex items-center gap-3">
+            <BriefcaseIcon className="w-7 h-7 shrink-0 text-slate-350" />
+            <div>
+              <h2 className="text-lg font-bold">{t('nav.field_officer')}</h2>
+              <p className="text-xs text-slate-300">Case Resolution & Offline Sync Tool</p>
+            </div>
           </div>
+          
+          {/* P2P Sync Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setShowImportPanel(!showImportPanel)}
+            className="flex items-center gap-1 bg-emerald-700 text-white border-2 border-emerald-600 px-3 py-1.5 rounded-xl font-bold text-xs hover:bg-emerald-800 transition-all cursor-pointer shadow-sm"
+          >
+            📥 Import P2P Sync
+          </button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-2xl mx-auto w-full pb-16">
+        
+        {/* P2P Import Panel Overlay */}
+        {showImportPanel && (
+          <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-md flex flex-col gap-3 animate-in slide-in-from-top-3">
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-slate-800 text-sm">Offline P2P Import Scanner</p>
+              <button
+                type="button"
+                onClick={() => setShowImportPanel(false)}
+                className="p-1 rounded-full hover:bg-slate-100"
+              >
+                <XIcon className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-500">
+              Paste the Base64 sync code from the citizen's device below, or simulate camera scanning.
+            </p>
+
+            <textarea
+              value={p2pCodeInput}
+              onChange={(e) => setP2pCodeInput(e.target.value)}
+              placeholder="Paste sync code here..."
+              rows={3}
+              className="w-full rounded-xl border border-slate-300 p-2 font-mono text-xs focus:outline-slate-400"
+            />
+
+            {importError && (
+              <p className="text-xs font-semibold text-red-600">❌ Invalid Sync Code structure. Try again.</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleImportSubmit}
+                disabled={!p2pCodeInput.trim()}
+                className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg text-xs font-bold"
+              >
+                Import Dispute
+              </button>
+              <button
+                type="button"
+                onClick={handleSimulatedScan}
+                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+              >
+                Simulate QR Scan
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           <select
             value={villageFilter}
@@ -113,7 +285,7 @@ export function FieldOfficerScreen() {
           <button
             type="button"
             onClick={() => setSortAsc((s) => !s)}
-            className="rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 active:bg-slate-100"
+            className="rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-650 active:bg-slate-100"
           >
             {sortAsc ? 'Oldest first' : 'Newest first'}
           </button>
@@ -126,20 +298,30 @@ export function FieldOfficerScreen() {
         {isLoading && <p className="text-center text-slate-400 py-8">Loading…</p>}
 
         {!isLoading && filtered.length === 0 && (
-          <p className="text-center text-slate-400 py-8">No disputes match these filters.</p>
+          <p className="text-center text-slate-400 py-8 font-semibold">No disputes match these filters.</p>
         )}
 
         <div className="flex flex-col gap-3">
           {filtered.map((d) => {
             const meta = STATUS_META[d.status]
-            const { category, note } = splitDescription(d.description)
+            const { category, note, remark } = splitDescription(d.description)
             const ZoneIcon = d.parcel ? ZONE_ICONS[d.parcel.zone_type] : AlertIcon
+            
+            // Check if this dispute contains evidence markers
+            const hasPhotos = d.photos && d.photos.length > 0
+            const hasAudio = Boolean(d.audio)
+
             return (
-              <div key={d.id} className={`rounded-xl border-2 ${meta.border} bg-white p-4 flex flex-col gap-2`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-bold text-slate-700">{d.fake_reference_number}</span>
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => openDisputeDetails(d)}
+                className={`w-full text-left rounded-xl border-2 hover:bg-slate-50 transition-all ${meta.border} bg-white p-4 flex flex-col gap-2 relative shadow-sm hover:scale-101 active:scale-99 cursor-pointer`}
+              >
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <span className="font-mono text-sm font-bold text-slate-700 truncate">{d.fake_reference_number}</span>
                   <span
-                    className={`flex items-center gap-1.5 rounded-full ${meta.bg} ${meta.text} px-2.5 py-1 text-xs font-bold`}
+                    className={`flex items-center gap-1.5 rounded-full ${meta.bg} ${meta.text} px-2.5 py-1 text-xs font-bold shrink-0`}
                   >
                     <meta.Icon className="w-4 h-4" />
                     {meta.label}
@@ -150,24 +332,158 @@ export function FieldOfficerScreen() {
                   <ZoneIcon className="w-4 h-4 text-slate-400 shrink-0" />
                   <span className="font-semibold">{d.parcel?.demo_village_name ?? 'Unknown village'}</span>
                   <span className="text-slate-300">•</span>
-                  <span className="font-mono text-xs">{d.parcel_id}</span>
+                  <span className="font-mono text-xs truncate">{d.parcel_id}</span>
                 </div>
 
-                <p className="text-sm font-semibold text-slate-800">{category}</p>
-                {note && <p className="text-sm text-slate-600">{note}</p>}
+                <p className="text-sm font-bold text-slate-800">{category}</p>
+                {note && <p className="text-sm text-slate-600 line-clamp-2">{note}</p>}
+                
+                {/* Evidence icons badges */}
+                {(hasPhotos || hasAudio) && (
+                  <div className="flex gap-2 items-center mt-1">
+                    {hasPhotos && <span className="text-[10px] font-bold bg-slate-100 text-slate-750 px-1.5 py-0.5 rounded-md">📸 Photos</span>}
+                    {hasAudio && <span className="text-[10px] font-bold bg-slate-100 text-slate-750 px-1.5 py-0.5 rounded-md">🎙️ Voice Clip</span>}
+                  </div>
+                )}
 
-                <p className="text-xs text-slate-400">
+                {remark && (
+                  <div className="bg-emerald-50/50 border border-emerald-200 rounded-lg p-2 mt-1 text-xs text-slate-700">
+                    <span className="font-bold">Remarks:</span> {remark}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-slate-400 mt-1">
                   Submitted {formatDate(d.created_at)} · {d.submitted_by}
                 </p>
-              </div>
+              </button>
             )
           })}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 shrink-0">
           <ConnectionStatus />
         </div>
       </div>
+
+      {/* Case Management Resolution Drawer overlay */}
+      {selectedDispute && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-4"
+          onClick={() => setSelectedDispute(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 flex flex-col gap-4 shadow-xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-semibold text-slate-400 tracking-wider font-mono">
+                  {selectedDispute.fake_reference_number}
+                </span>
+                <h3 className="text-lg font-bold text-slate-800">Case Resolution Panel</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDispute(null)}
+                className="p-1 rounded-full hover:bg-slate-100"
+              >
+                <XIcon className="w-6 h-6 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 flex flex-col gap-2 text-sm text-slate-700">
+              <p>
+                <span className="font-bold">Village:</span> {selectedDispute.parcel?.demo_village_name}
+              </p>
+              <p>
+                <span className="font-bold">Parcel ID:</span> {selectedDispute.parcel_id}
+              </p>
+              <p>
+                <span className="font-bold">Zoning:</span> {selectedDispute.parcel ? t(`zone.${selectedDispute.parcel.zone_type}`) : 'Unknown'}
+              </p>
+              
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 mt-1">
+                <p className="font-bold text-xs uppercase text-slate-400">Citizen Note</p>
+                <p className="text-slate-800 font-semibold mt-1">
+                  {splitDescription(selectedDispute.description).note || 'No notes added by citizen.'}
+                </p>
+              </div>
+
+              {/* Multimodal Attachments Previews */}
+              {selectedDispute.photos && selectedDispute.photos.length > 0 && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <p className="font-bold text-xs uppercase text-slate-400">Attached Photos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDispute.photos.map((url, idx) => (
+                      <a href={url} target="_blank" rel="noreferrer" key={idx} className="w-16 h-16 rounded-xl border border-slate-300 overflow-hidden shadow-xs shrink-0 cursor-pointer">
+                        <img src={url} className="w-full h-full object-cover" alt="dispute attachment" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedDispute.audio && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <p className="font-bold text-xs uppercase text-slate-400">Attached Voice Statement</p>
+                  <audio src={selectedDispute.audio} controls className="w-full h-10 mt-1" />
+                </div>
+              )}
+            </div>
+
+            {/* Action controls */}
+            <div className="border-t border-slate-100 pt-3 flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="action-status" className="font-bold text-xs uppercase text-slate-400">
+                  Update Status
+                </label>
+                <select
+                  id="action-status"
+                  value={actionStatus}
+                  onChange={(e) => setActionStatus(e.target.value as DisputeStatus)}
+                  className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 bg-white text-sm"
+                >
+                  <option value="submitted">Submitted</option>
+                  <option value="in_review">In Review</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="action-comment" className="font-bold text-xs uppercase text-slate-400">
+                  Officer Remarks / Comment
+                </label>
+                <textarea
+                  id="action-comment"
+                  value={actionComment}
+                  onChange={(e) => setActionComment(e.target.value)}
+                  placeholder="Type official comments or resolution note..."
+                  rows={3}
+                  className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 bg-white text-sm resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDispute(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAction}
+                  disabled={isSavingAction}
+                  className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-350 text-white font-bold rounded-xl text-sm"
+                >
+                  {isSavingAction ? 'Saving...' : 'Save Resolution'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

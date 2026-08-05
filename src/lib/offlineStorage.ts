@@ -14,6 +14,7 @@ const STORAGE_KEYS = {
   DISPUTE_QUEUE: 'giz-offline-dispute-queue',
   LAST_SYNC: 'giz-offline-last-sync',
   CACHE_VERSION: 'giz-offline-cache-version',
+  DISPUTE_OVERRIDES: 'giz-offline-dispute-overrides',
 } as const
 
 // Cache version - increment when data structure changes
@@ -31,6 +32,8 @@ export type QueuedDispute = {
   note: string
   timestamp: number
   retries: number
+  photos?: string[]
+  audio?: string | null
 }
 
 export type SyncStatus = {
@@ -240,3 +243,27 @@ export function cacheAllData(villages: Village[], parcels: Parcel[], translation
 export function hasAnyCachedData(): boolean {
   return hasCachedVillages() || hasCachedParcels() || hasCachedTranslations()
 }
+
+// ============================================================================
+// DISPUTE RESOLUTION OVERRIDES (for offline officer actions)
+// ============================================================================
+
+export type DisputeOverride = {
+  status: 'submitted' | 'in_review' | 'resolved'
+  comment: string
+  updatedAt: number
+}
+
+export function getDisputeOverrides(): Record<string, DisputeOverride> {
+  return getFromStorage<Record<string, DisputeOverride>>(STORAGE_KEYS.DISPUTE_OVERRIDES, {})
+}
+
+export function saveDisputeOverride(id: string, status: 'submitted' | 'in_review' | 'resolved', comment: string): void {
+  const overrides = getDisputeOverrides()
+  overrides[id] = {
+    status,
+    comment,
+    updatedAt: Date.now(),
+  }
+  setToStorage(STORAGE_KEYS.DISPUTE_OVERRIDES, overrides)
+}

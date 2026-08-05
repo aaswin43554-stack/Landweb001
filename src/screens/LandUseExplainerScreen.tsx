@@ -72,11 +72,61 @@ export function LandUseExplainerScreen() {
   const [parcels, setParcels] = useState<Parcel[]>([])
   const [selected, setSelected] = useState<Parcel | null>(null)
 
+  // Zoom and Pan States
+  const [scale, setScale] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
   useEffect(() => {
     fetchAllParcels().then(setParcels)
   }, [])
 
   const clusters = useMemo(() => clusterByVillage(parcels), [parcels])
+
+  // Mouse pan handlers
+  function handleMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    e.preventDefault()
+    setIsDragging(true)
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+  }
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!isDragging) return
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
+  }
+
+  function handleMouseUpOrLeave() {
+    setIsDragging(false)
+  }
+
+  // Touch pan handlers
+  function handleTouchStart(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length === 1) {
+      setIsDragging(true)
+      const touch = e.touches[0]
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y })
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent<SVGSVGElement>) {
+    if (!isDragging || e.touches.length !== 1) return
+    const touch = e.touches[0]
+    setPan({ x: touch.clientX - dragStart.x, y: touch.clientY - dragStart.y })
+  }
+
+  function handleZoomIn() {
+    setScale((prev) => Math.min(prev + 0.25, 3))
+  }
+
+  function handleZoomOut() {
+    setScale((prev) => Math.max(prev - 0.25, 0.5))
+  }
+
+  function handleReset() {
+    setScale(1)
+    setPan({ x: 0, y: 0 })
+  }
 
   return (
     <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-lg mx-auto w-full">
@@ -88,52 +138,97 @@ export function LandUseExplainerScreen() {
         </div>
       </div>
 
-      <div className="rounded-2xl border-2 border-gray-200 bg-white overflow-hidden">
-        <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="w-full h-auto" role="img" aria-label={t('nav.land_use_explainer')}>
+      {/* SVG Canvas Map Container */}
+      <div className="rounded-2xl border-2 border-gray-200 bg-white overflow-hidden relative">
+        {/* Zoom & Pan Controls Overlay */}
+        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="w-10 h-10 rounded-xl bg-white border-2 border-gray-200 flex items-center justify-center font-bold text-lg text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-sm cursor-pointer select-none"
+            aria-label="Zoom In"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="w-10 h-10 rounded-xl bg-white border-2 border-gray-200 flex items-center justify-center font-bold text-lg text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-sm cursor-pointer select-none"
+            aria-label="Zoom Out"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-2.5 py-1.5 rounded-xl bg-white border-2 border-gray-200 flex items-center justify-center font-bold text-xs text-gray-600 hover:bg-gray-100 active:scale-95 transition-all shadow-sm cursor-pointer select-none"
+            aria-label="Reset Map"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Map Viewport */}
+        <svg
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          className="w-full h-auto cursor-grab active:cursor-grabbing select-none"
+          role="img"
+          aria-label={t('nav.land_use_explainer')}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseUpOrLeave}
+        >
           <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="#f0fdf4" />
-          {clusters.map((cluster) => (
-            <g key={cluster.villageId}>
-              <text
-                x={cluster.x}
-                y={cluster.y - 46}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill="#374151"
-              >
-                {cluster.villageName}
-              </text>
-              {cluster.parcels.map(({ parcel, x, y }) => {
-                const style = ZONE_STYLES[parcel.zone_type]
-                const isSelected = selected?.id === parcel.id
-                return (
-                  <g
-                    key={parcel.id}
-                    onClick={() => setSelected(parcel)}
-                    className="cursor-pointer"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={t(`zone.${parcel.zone_type}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setSelected(parcel)
-                    }}
-                  >
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={isSelected ? 19 : 16}
-                      fill={style.fill}
-                      stroke={style.ring}
-                      strokeWidth={isSelected ? 3 : 2}
-                    />
-                    <foreignObject x={x - 10} y={y - 10} width="20" height="20" className="pointer-events-none">
-                      <style.Icon className="w-5 h-5" style={{ color: style.text }} />
-                    </foreignObject>
-                  </g>
-                )
-              })}
-            </g>
-          ))}
+          
+          <g transform={`translate(${pan.x}, ${pan.y}) scale(${scale})`}>
+            {clusters.map((cluster) => (
+              <g key={cluster.villageId}>
+                <text
+                  x={cluster.x}
+                  y={cluster.y - 46}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="700"
+                  fill="#374151"
+                >
+                  {cluster.villageName}
+                </text>
+                {cluster.parcels.map(({ parcel, x, y }) => {
+                  const style = ZONE_STYLES[parcel.zone_type]
+                  const isSelected = selected?.id === parcel.id
+                  return (
+                    <g
+                      key={parcel.id}
+                      onClick={() => setSelected(parcel)}
+                      className="cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t(`zone.${parcel.zone_type}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') setSelected(parcel)
+                      }}
+                    >
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={isSelected ? 19 : 16}
+                        fill={style.fill}
+                        stroke={style.ring}
+                        strokeWidth={isSelected ? 3 : 2}
+                      />
+                      <foreignObject x={x - 10} y={y - 10} width="20" height="20" className="pointer-events-none">
+                        <style.Icon className="w-5 h-5" style={{ color: style.text }} />
+                      </foreignObject>
+                    </g>
+                  )
+                })}
+              </g>
+            ))}
+          </g>
         </svg>
         <p className="text-center text-xs text-gray-400 py-2 px-3 border-t border-gray-100">
           {t('explainer.map_caption')}

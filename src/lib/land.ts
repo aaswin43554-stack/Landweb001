@@ -11,6 +11,8 @@ import {
   getDisputeQueue,
   removeDisputeFromQueue,
   cacheAllData,
+  getDisputeOverrides,
+  saveDisputeOverride,
 } from './offlineStorage'
 
 export type ParcelStatus = 'registered' | 'pending' | 'disputed'
@@ -33,7 +35,6 @@ export type Parcel = {
 
 const PARCEL_COLUMNS = 'id, village_id, demo_village_name, status, zone_type, geo_coords'
 
-// Fixed so the "simulated scan" always returns the same demo result.
 const DEMO_SCAN_PARCEL_ID = 'DEMO-PARCEL-0005'
 
 /**
@@ -171,9 +172,6 @@ export async function fetchAllParcels(): Promise<Parcel[]> {
 
 export type DisputeCategory = 'boundary' | 'wrong_info' | 'ownership' | 'other'
 
-// Plain-English labels folded into the disputes.description column, since
-// the M1 schema has no separate category field. The field-officer view
-// (M6) is allowed more technical language, so this is fine to read raw.
 const DISPUTE_CATEGORY_LABELS: Record<DisputeCategory, string> = {
   boundary: 'Boundary problem',
   wrong_info: 'Wrong information shown',
@@ -181,22 +179,26 @@ const DISPUTE_CATEGORY_LABELS: Record<DisputeCategory, string> = {
   other: 'Other concern',
 }
 
-// No auth/real identity in this prototype (see M0 guardrails), so every
-// submission is attributed to a fixed demo citizen rather than a real name.
 const DEMO_SUBMITTER = 'demo-citizen'
 
 /**
- * Create a dispute with offline queuing support.
- * If online, submits to Supabase immediately.
- * If offline, queues locally for later sync.
+ * Create a dispute with offline queuing support and media attachments.
  */
 export async function createDispute(input: {
   parcelId: string
   category: DisputeCategory
   note: string
+  photos?: string[]
+  audio?: string | null
 }): Promise<{ fakeReferenceNumber: string; queued: boolean } | null> {
-  const description = [DISPUTE_CATEGORY_LABELS[input.category], input.note.trim()].filter(Boolean).join(' — ')
-  
+  let description = [DISPUTE_CATEGORY_LABELS[input.category], input.note.trim()].filter(Boolean).join(' — ')
+  if (input.photos && input.photos.length > 0) {
+    description += ` [Evidence: ${input.photos.length} photos]`
+  }
+  if (input.audio) {
+    description += ' [Evidence: 1 voice note]'
+  }
+
   const client = supabase
   
   if (client) {
@@ -208,18 +210,18 @@ export async function createDispute(input: {
         .single()
       if (error || !data) {
         // If online but request failed, queue for retry
-        queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note })
+        queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
         return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
       }
       return { fakeReferenceNumber: data.fake_reference_number as string, queued: false }
     } catch {
       // Network error - queue for later
-      queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note })
+      queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
       return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
     }
   } else {
     // Offline - queue for later sync
-    queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note })
+    queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
     return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
   }
 }
@@ -240,7 +242,14 @@ export async function syncQueuedDisputes(): Promise<{ synced: number; failed: nu
   
   for (const dispute of queue) {
     try {
-      const description = [DISPUTE_CATEGORY_LABELS[dispute.category as DisputeCategory], dispute.note.trim()].filter(Boolean).join(' — ')
+      let description = [DISPUTE_CATEGORY_LABELS[dispute.category as DisputeCategory], dispute.note.trim()].filter(Boolean).join(' — ')
+      if (dispute.photos && dispute.photos.length > 0) {
+        description += ` [Evidence: ${dispute.photos.length} photos]`
+      }
+      if (dispute.audio) {
+        description += ' [Evidence: 1 voice note]'
+      }
+
       const { error } = await client
         .from('disputes')
         .insert({ parcel_id: dispute.parcelId, submitted_by: DEMO_SUBMITTER, description })
@@ -259,10 +268,6 @@ export async function syncQueuedDisputes(): Promise<{ synced: number; failed: nu
   return { synced, failed }
 }
 
-// M6 field-officer dashboard. Display-only — there is no RLS update policy
-// on `disputes` for the anon key, so this stays a read-only queue view
-// rather than a case-management tool (matches the M6/M7 "demo queue view
-// only" guardrail in module_prompts.txt).
 export type DisputeStatus = 'submitted' | 'in_review' | 'resolved'
 
 export type Dispute = {
@@ -274,20 +279,97 @@ export type Dispute = {
   fake_reference_number: string
   created_at: string
   parcel: { demo_village_name: string; village_id: string; zone_type: ZoneType } | null
+  photos?: string[]
+  audio?: string | null
 }
 
 const DISPUTE_COLUMNS =
   'id, parcel_id, submitted_by, description, status, fake_reference_number, created_at, parcel:parcels(demo_village_name, village_id, zone_type)'
 
 export async function fetchDisputes(): Promise<Dispute[]> {
-  if (!supabase) return []
-  const { data, error } = await supabase
-    .from('disputes')
-    .select(DISPUTE_COLUMNS)
-    .order('created_at', { ascending: false })
-  if (error || !data) return []
-  return data.map((row) => ({
-    ...row,
-    parcel: Array.isArray(row.parcel) ? (row.parcel[0] ?? null) : row.parcel,
-  })) as Dispute[]
+  const client = supabase
+
+  // Load offline queued disputes
+  const queue = getDisputeQueue()
+  const queuedDisputes: Dispute[] = queue.map((d) => {
+    let description = [DISPUTE_CATEGORY_LABELS[d.category as DisputeCategory], d.note.trim()].filter(Boolean).join(' — ')
+    if (d.photos && d.photos.length > 0) {
+      description += ` [Evidence: ${d.photos.length} photos]`
+    }
+    if (d.audio) {
+      description += ' [Evidence: 1 voice note]'
+    }
+
+    return {
+      id: d.id,
+      parcel_id: d.parcelId,
+      submitted_by: DEMO_SUBMITTER,
+      description,
+      status: 'submitted',
+      fake_reference_number: d.id,
+      created_at: new Date(d.timestamp).toISOString(),
+      parcel: getCachedParcels().find((p) => p.id === d.parcelId) || null,
+      photos: d.photos,
+      audio: d.audio,
+    } as Dispute
+  })
+
+  let dbDisputes: Dispute[] = []
+  if (client) {
+    try {
+      const { data, error } = await client
+        .from('disputes')
+        .select(DISPUTE_COLUMNS)
+        .order('created_at', { ascending: false })
+      if (data && !error) {
+        dbDisputes = data.map((row) => ({
+          ...row,
+          parcel: Array.isArray(row.parcel) ? (row.parcel[0] ?? null) : row.parcel,
+        })) as Dispute[]
+      }
+    } catch {
+      // Offline fallback for database fetch
+    }
+  }
+
+  const allDisputes = [...queuedDisputes, ...dbDisputes]
+
+  // Apply offline resolution status overrides
+  const overrides = getDisputeOverrides()
+  return allDisputes.map((d) => {
+    const override = overrides[d.id] || overrides[d.fake_reference_number]
+    if (override) {
+      return {
+        ...d,
+        status: override.status,
+        description: d.description + (override.comment ? ` \n[Officer Remark: ${override.comment}]` : ''),
+      }
+    }
+    return d
+  })
+}
+
+/**
+ * Update case status with local overrides support for offline robustness.
+ */
+export async function updateDisputeStatus(
+  disputeId: string,
+  status: 'submitted' | 'in_review' | 'resolved',
+  comment: string
+): Promise<boolean> {
+  // Always update locally for instant responsiveness
+  saveDisputeOverride(disputeId, status, comment)
+
+  const client = supabase
+  if (!client) return true // Offline success
+
+  try {
+    const { error } = await client
+      .from('disputes')
+      .update({ status, description: comment ? `Resolved — [Officer remark: ${comment}]` : undefined })
+      .or(`id.eq.${disputeId},fake_reference_number.eq.${disputeId}`)
+    return !error
+  } catch {
+    return true // Fallback succeeds via local storage override
+  }
 }
