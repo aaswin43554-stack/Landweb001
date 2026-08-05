@@ -445,12 +445,21 @@ export async function updateDisputeStatus(
   if (!client) return true // Offline success
 
   try {
-    const { error } = await client
-      .from('disputes')
-      .update({ status, description: comment ? `Resolved — [Officer remark: ${comment}]` : undefined })
-      .or(`id.eq.${disputeId},fake_reference_number.eq.${disputeId}`)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(disputeId)
+    const updateData = { status, description: comment ? `Resolved — [Officer remark: ${comment}]` : undefined }
+    
+    const query = client.from('disputes').update(updateData)
+    
+    const { error } = isUUID
+      ? await query.or(`id.eq.${disputeId},fake_reference_number.eq.${disputeId}`)
+      : await query.eq('fake_reference_number', disputeId)
+      
+    if (error) {
+      console.warn('Supabase DB Update error:', error.message)
+    }
     return !error
-  } catch {
+  } catch (err: any) {
+    console.warn('Catch error during Supabase status update:', err.message)
     return true // Fallback succeeds via local storage override
   }
 }
