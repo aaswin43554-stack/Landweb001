@@ -642,7 +642,7 @@ export function DisputeFormScreen() {
                 onClick={toggleSpeechToText}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-xs font-bold transition-all ${
                   isListening
-                    ? 'border-red-500 bg-red-50 text-red-800 animate-pulse'
+                    ? 'border-red-500 bg-red-600 text-white animate-pulse'
                     : 'border-emerald-600 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                 }`}
                 title={isListening ? 'Stop listening' : 'Start speaking'}
@@ -660,7 +660,7 @@ export function DisputeFormScreen() {
                   <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
                   <line x1="12" y1="19" x2="12" y2="22" />
                 </svg>
-                <span>{isListening ? 'Listening...' : 'Speak Notes'}</span>
+                <span>{isListening ? '🛑 Stop Recording Notes' : '🎙️ Speak Notes'}</span>
               </button>
             </div>
             
@@ -672,10 +672,18 @@ export function DisputeFormScreen() {
               rows={3}
               className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white resize-none focus:border-emerald-600 focus:outline-none animate-in"
             />
+
+            {/* Active Speech-to-Text Recording Indicator */}
+            {isListening && (
+              <div className="bg-red-50 border-2 border-red-300 text-red-800 text-xs px-3 py-2 rounded-xl flex items-center gap-2.5 animate-pulse shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600 block shrink-0"></span>
+                <span className="font-semibold">Speech Recognition Active: Speak now. Tap the red button to Stop.</span>
+              </div>
+            )}
           </div>
 
           {/* Multimodal Attachments Panel */}
-          <div className="flex flex-col gap-3 border-2 border-dashed border-gray-200 rounded-2xl p-4 bg-gray-50/50">
+          <div className="flex flex-col gap-3 border-2 border-dashed border-gray-300 rounded-2xl p-4 bg-gray-50/50 shadow-inner">
             <p className="text-sm font-bold text-gray-700">Add Evidence (Photos / Voice Note)</p>
             
             <div className="flex flex-wrap gap-2">
@@ -686,6 +694,15 @@ export function DisputeFormScreen() {
                 className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-xs cursor-pointer"
               >
                 📸 Take Photo
+              </button>
+
+              {/* Local File Selector Trigger */}
+              <button
+                type="button"
+                onClick={() => document.getElementById('photo-fallback-input')?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border-2 border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-xs cursor-pointer"
+              >
+                📁 Select Photo File
               </button>
               <input
                 id="photo-fallback-input"
@@ -702,13 +719,21 @@ export function DisputeFormScreen() {
                 onClick={isRecording ? stopRecording : startRecording}
                 className={`flex items-center gap-1.5 px-3 py-2 border-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
                   isRecording
-                    ? 'border-red-500 bg-red-50 text-red-800 animate-pulse'
+                    ? 'bg-red-600 border-red-600 text-white animate-pulse'
                     : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                🎙️ {isRecording ? `Stop (${recordDuration}s)` : 'Record Voice'}
+                🎙️ {isRecording ? `🛑 Stop Recording Voice (${recordDuration}s)` : '🎙️ Record Voice'}
               </button>
             </div>
+
+            {/* Pulsing Voice Recording Indicator banner */}
+            {isRecording && (
+              <div className="bg-red-50 border-2 border-red-300 text-red-800 text-xs px-3 py-2 rounded-xl flex items-center gap-2.5 animate-pulse shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600 block shrink-0"></span>
+                <span className="font-semibold">Voice Recorder Active: Recording audio evidence... ({recordDuration}s). Tap Stop to save.</span>
+              </div>
+            )}
 
             {/* Video stream panel when camera is active */}
             {cameraActive && (
