@@ -1,262 +1,396 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabaseClient'
+import { getCachedTranslations, cacheTranslations } from './offlineStorage'
 
-export type Language = 'lo' | 'en' | 'min-demo'
+export type Language = 'lo' | 'en' | 'hm' | 'km'
 
-const LANGUAGE_CYCLE: Language[] = ['lo', 'en', 'min-demo']
+const LANGUAGE_CYCLE: Language[] = ['lo', 'en', 'hm', 'km']
 
-type TranslationEntry = { lao_text: string; english_text: string; sample_minority_language_text: string }
+type TranslationEntry = {
+  lao_text: string
+  english_text: string
+  hmong_text: string
+  khmu_text: string
+}
 
-// Baked-in copy of the M1 seed data (see supabase/seed.sql) so the UI
-// renders correctly instantly, before the live fetch resolves, and still
-// works if a teammate hasn't configured .env yet.
 const FALLBACK_TRANSLATIONS: Record<string, TranslationEntry> = {
-  'app.title': { lao_text: 'ຂໍ້ມູນທີ່ດິນ', english_text: 'Land Info', sample_minority_language_text: 'Dinfo Baan' },
+  'app.title': {
+    lao_text: 'ຂໍ້ມູນທີ່ດິນ',
+    english_text: 'Land Info',
+    hmong_text: 'Ntaub Ntawv Av',
+    khmu_text: 'Khmu Land Info',
+  },
   'banner.fictional_notice': {
     lao_text: 'ຕົວຢ່າງ - ຂໍ້ມູນສົມມຸດຕິຖານເທົ່ານັ້ນ',
     english_text: 'Sample - demonstration data only',
-    sample_minority_language_text: 'Sampol - demo data bo tae',
+    hmong_text: 'Qauv - Kev sim ua xwb',
+    khmu_text: 'Sim - data samot nla',
   },
-  'nav.parcel_lookup': { lao_text: 'ຄົ້ນຫາທີ່ດິນ', english_text: 'Search Land', sample_minority_language_text: 'Hasearch dinlan' },
+  'nav.parcel_lookup': {
+    lao_text: 'ຄົ້ນຫາທີ່ດິນ',
+    english_text: 'Search Land',
+    hmong_text: 'Nrhiav Av',
+    khmu_text: 'Rong Land',
+  },
   'nav.land_use_explainer': {
     lao_text: 'ອະທິບາຍເຂດທີ່ດິນ',
     english_text: 'Land Zone Info',
-    sample_minority_language_text: 'Zone-info dinlan',
+    hmong_text: 'Cheeb Tsam Av',
+    khmu_text: 'Zone Land',
   },
-  'nav.dispute_form': { lao_text: 'ແຈ້ງບັນຫາ', english_text: 'Report Issue', sample_minority_language_text: 'Report panha' },
+  'nav.dispute_form': {
+    lao_text: 'ແຈ້ງບັນຫາ',
+    english_text: 'Report Issue',
+    hmong_text: 'Tshaj Teeb Meem',
+    khmu_text: 'Tsen Panha',
+  },
   'nav.field_officer': {
     lao_text: 'ເຈົ້າໜ້າທີ່ພາກສະໜາມ',
     english_text: 'Field Officer',
-    sample_minority_language_text: 'Field officero',
+    hmong_text: 'Tub Ceev Xwm',
+    khmu_text: 'Field Officer',
   },
-  'nav.back_to_citizen': { lao_text: 'ກັບຄືນ', english_text: 'Back', sample_minority_language_text: 'Backo to citizeno' },
-  'status.registered': { lao_text: 'ລົງທະບຽນແລ້ວ', english_text: 'Registered', sample_minority_language_text: 'Registo-don' },
-  'status.pending': { lao_text: 'ກຳລັງລໍຖ້າ', english_text: 'Pending', sample_minority_language_text: 'Waito-lang' },
-  'status.disputed': { lao_text: 'ມີຂໍ້ຂັດແຍ້ງ', english_text: 'Disputed', sample_minority_language_text: 'Disputo-nay' },
-  'zone.forest': { lao_text: 'ປ່າໄມ້', english_text: 'Forest', sample_minority_language_text: 'Foresto-mai' },
-  'zone.agricultural': { lao_text: 'ເຂດກະສິກຳ', english_text: 'Agricultural', sample_minority_language_text: 'Farmo-kasi' },
-  'zone.residential': { lao_text: 'ເຂດທີ່ຢູ່ອາໄສ', english_text: 'Residential', sample_minority_language_text: 'Homo-asai' },
-  'zone.disputed': { lao_text: 'ເຂດຂັດແຍ້ງ', english_text: 'Disputed Zone', sample_minority_language_text: 'Disputo-zone' },
+  'nav.back_to_citizen': {
+    lao_text: 'ກັບຄືນ',
+    english_text: 'Back',
+    hmong_text: 'Rov Qab',
+    khmu_text: 'Rong',
+  },
+  'status.registered': {
+    lao_text: 'ລົງທະບຽນແລ້ວ',
+    english_text: 'Registered',
+    hmong_text: 'Sau Npe Lawm',
+    khmu_text: 'Krap mu',
+  },
+  'status.pending': {
+    lao_text: 'ກຳລັງລໍຖ້າ',
+    english_text: 'Pending',
+    hmong_text: 'Nyob Huv Kev',
+    khmu_text: 'Moy',
+  },
+  'status.disputed': {
+    lao_text: 'ມີຂໍ້ຂັດແຍ້ງ',
+    english_text: 'Disputed',
+    hmong_text: 'Muaj Teeb Meem',
+    khmu_text: 'Disputed',
+  },
+  'zone.forest': {
+    lao_text: 'ປ່າໄມ້',
+    english_text: 'Forest',
+    hmong_text: 'Hav Zoov',
+    khmu_text: 'Klong',
+  },
+  'zone.agricultural': {
+    lao_text: 'ເຂດກະສິກຳ',
+    english_text: 'Agricultural',
+    hmong_text: 'Ua Liaj Ua Teb',
+    khmu_text: 'Agriculture',
+  },
+  'zone.residential': {
+    lao_text: 'ເຂດທີ່ຢູ່ອາໄສ',
+    english_text: 'Residential',
+    hmong_text: 'Tsev Nyob',
+    khmu_text: 'Hom',
+  },
+  'zone.disputed': {
+    lao_text: 'ເຂດຂັດແຍ້ງ',
+    english_text: 'Disputed Zone',
+    hmong_text: 'Av Teeb Meem',
+    khmu_text: 'Disputed Zone',
+  },
   'search.placeholder': {
     lao_text: 'ພິມຊື່ບ້ານ...',
     english_text: 'Type village name...',
-    sample_minority_language_text: 'Type baan nane...',
+    hmong_text: 'Sau lub zos...',
+    khmu_text: 'Type village...',
   },
-  'search.button': { lao_text: 'ຄົ້ນຫາ', english_text: 'Search', sample_minority_language_text: 'Searcho' },
-  'scan.button': { lao_text: 'ສະແກນລະຫັດສາທິດ', english_text: 'Scan demo code', sample_minority_language_text: 'Scano demo-code' },
-  'lastsynced.label': { lao_text: 'ອັບເດດຫຼ້າສຸດ', english_text: 'Last synced', sample_minority_language_text: 'Lasto-sync' },
-  'lastsynced.value': { lao_text: '2 ຊົ່ວໂມງກ່ອນ', english_text: '2 hours ago', sample_minority_language_text: '2 hours agongo' },
+  'search.button': {
+    lao_text: 'ຄົ້ນຫາ',
+    english_text: 'Search',
+    hmong_text: 'Nrhiav',
+    khmu_text: 'Rong',
+  },
+  'scan.button': {
+    lao_text: 'ສະແກນລະຫັດສາທິດ',
+    english_text: 'Scan demo code',
+    hmong_text: 'Luam Code',
+    khmu_text: 'Scan code',
+  },
+  'lastsynced.label': {
+    lao_text: 'ອັບເດດຫຼ້າສຸດ',
+    english_text: 'Last synced',
+    hmong_text: 'Synced Lawm',
+    khmu_text: 'Last synced',
+  },
+  'lastsynced.value': {
+    lao_text: '2 ຊົ່ວໂມງກ່ອນ',
+    english_text: '2 hours ago',
+    hmong_text: '2 teev dhau los',
+    khmu_text: '2 hr',
+  },
   'dispute.step_parcel': {
-    lao_text: 'ເລືອກທີ່ດິນ/ບ້ານ',
+    lao_text: '\u1eecເລືອກທີ່ດິນ/ບ້ານ',
     english_text: 'Select parcel/village',
-    sample_minority_language_text: 'Picko parcel',
+    hmong_text: 'Xaiv Av/Zos',
+    khmu_text: 'Select parcel',
   },
   'dispute.step_category': {
     lao_text: 'ເລືອກປະເພດບັນຫາ',
     english_text: 'Select issue category',
-    sample_minority_language_text: 'Picko category',
+    hmong_text: 'Xaiv Hom Teeb Meem',
+    khmu_text: 'Select category',
   },
-  'dispute.submit': { lao_text: 'ຍື່ນສົ່ງ', english_text: 'Submit', sample_minority_language_text: 'Sendo form' },
+  'dispute.submit': {
+    lao_text: 'ຍື່ນສົ່ງ',
+    english_text: 'Submit',
+    hmong_text: 'Xa Mus',
+    khmu_text: 'Sendo',
+  },
   'dispute.reference_label': {
     lao_text: 'ເລກອ້າງອີງ',
     english_text: 'Reference number',
-    sample_minority_language_text: 'Refo number',
+    hmong_text: 'Tus Nab Npawb',
+    khmu_text: 'Ref number',
   },
-  'lookup.title': { lao_text: 'ກວດສອບສະຖານະທີ່ດິນ', english_text: 'Check land status', sample_minority_language_text: 'Checko land status' },
+  'lookup.title': {
+    lao_text: 'ກວດສອບສະຖານະທີ່ດິນ',
+    english_text: 'Check land status',
+    hmong_text: 'Tshawb Av',
+    khmu_text: 'Check land',
+  },
   'lookup.village_label': {
     lao_text: 'ເລືອກບ້ານຂອງທ່ານ',
     english_text: 'Select your village',
-    sample_minority_language_text: 'Picko your baan',
+    hmong_text: 'Xaiv Koj Lub Zos',
+    khmu_text: 'Select your village',
   },
   'lookup.village_placeholder': {
     lao_text: '-- ເລືອກບ້ານ --',
     english_text: '-- Select village --',
-    sample_minority_language_text: '-- Picko baan --',
+    hmong_text: '-- Xaiv Lub Zos --',
+    khmu_text: '-- Select village --',
   },
   'lookup.no_results': {
     lao_text: 'ບໍ່ພົບຂໍ້ມູນ. ລອງສະແກນລະຫັດສາທິດ.',
     english_text: 'No results found. Try scanning the demo code instead.',
-    sample_minority_language_text: 'No datao found. Try scano instead.',
+    hmong_text: 'Tsis pom av. Sim nrog code.',
+    khmu_text: 'No results',
   },
   'lookup.scan_hint': {
     lao_text: 'ຈຳລອງການສະແກນລະຫັດ QR ສາທິດ',
     english_text: 'Simulate scanning a demo QR code',
-    sample_minority_language_text: 'Fako QR scano demo',
+    hmong_text: 'Sim luam code',
+    khmu_text: 'Simulate QR scan',
   },
   'stub.coming_soon': {
     lao_text: 'ໜ້ານີ້ກຳລັງພັດທະນາ',
     english_text: 'This page is under development',
-    sample_minority_language_text: 'Pageo comingo soon',
+    hmong_text: 'Tab tom ua chaw',
+    khmu_text: 'Under dev',
   },
   'explainer.hint': {
     lao_text: 'ແຕະເຂດສີເພື່ອຮຽນຮູ້ຄວາມໝາຍ',
     english_text: 'Tap a colored area to learn what it means',
-    sample_minority_language_text: 'Tapo colored area to learno',
+    hmong_text: 'Kais hauv av kawm ntxiv',
+    khmu_text: 'Tap area to learn',
   },
   'explainer.map_caption': {
     lao_text: 'ຮູບແບບປະກອບຄຳອະທິບາຍ - ບໍ່ແມ່ນແຜນທີ່ທີ່ຖືກຕ້ອງ',
     english_text: 'Illustrative layout — not an accurate map',
-    sample_minority_language_text: 'Illustro layout - not real mapo',
+    hmong_text: 'Daim duab saib xwb',
+    khmu_text: 'Illustration only',
   },
   'explainer.legend_title': {
     lao_text: 'ປະເພດເຂດ',
     english_text: 'Zone types',
-    sample_minority_language_text: 'Zoneo typeso',
+    hmong_text: 'Cov Hom Av',
+    khmu_text: 'Zone types',
   },
   'explainer.panel.village_label': {
     lao_text: 'ບ້ານ',
     english_text: 'Village',
-    sample_minority_language_text: 'Baano',
+    hmong_text: 'Zos',
+    khmu_text: 'Village',
   },
   'explainer.panel.close': {
     lao_text: 'ປິດ',
     english_text: 'Close',
-    sample_minority_language_text: 'Closeo',
+    hmong_text: 'Kaw',
+    khmu_text: 'Close',
   },
   'zone_explain.forest': {
     lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນປ່າໄມ້.',
     english_text: 'This area is marked as forest land.',
-    sample_minority_language_text: 'This areao is foresto land.',
+    hmong_text: 'Cheeb tsam no yog hav zoov av.',
+    khmu_text: 'This is forest land.',
   },
   'zone_explain.agricultural': {
     lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນກະສິກຳ.',
     english_text: 'This area is marked as farmland.',
-    sample_minority_language_text: 'This areao is farmo land.',
+    hmong_text: 'Cheeb tsam no yog av ua liaj ua teb.',
+    khmu_text: 'This is farmland.',
   },
   'zone_explain.residential': {
     lao_text: 'ເຂດນີ້ຖືກໝາຍເປັນທີ່ດິນສຳລັບທີ່ຢູ່ອາໄສ.',
     english_text: 'This area is marked as land for homes.',
-    sample_minority_language_text: 'This areao is homo land.',
+    hmong_text: 'Cheeb tsam no yog av tsev nyob.',
+    khmu_text: 'This is home land.',
   },
   'zone_explain.disputed': {
     lao_text: 'ເຂດນີ້ຖືກໝາຍວ່າມີຂໍ້ຂັດແຍ້ງ.',
     english_text: 'This area is marked as land under disagreement.',
-    sample_minority_language_text: 'This areao has disagreemento.',
+    hmong_text: 'Av muaj teeb meem tsis sib haum.',
+    khmu_text: 'This land is under dispute.',
   },
   'dispute.step3_title': {
     lao_text: 'ເພີ່ມລາຍລະອຽດ (ບໍ່ບັງຄັບ)',
     english_text: 'Add more detail (optional)',
-    sample_minority_language_text: 'Addo detailo (optionalo)',
+    hmong_text: 'Ntxiv lwm yam (tsis yuam)',
+    khmu_text: 'Add detail (optional)',
   },
   'dispute.step3_placeholder': {
-    lao_text: 'ພິມລາຍລະອຽດເພີ່ມເຕີມທີ່ນີ້ (ບໍ່ບັງຄັບ)',
+    lao_text: 'ພιມລາຍລະອຽດເພີ່ມເຕີມທີ່ນີ້ (ບໍ່ບັງຄັບ)',
     english_text: 'Type any extra detail here (optional)',
-    sample_minority_language_text: 'Typeo detailo here (optionalo)',
+    hmong_text: 'Sau cov ntsiab lus ntawm no',
+    khmu_text: 'Type details here',
   },
   'dispute.step4_title': {
     lao_text: 'ກວດສອບ ແລະ ຍື່ນສົ່ງ',
     english_text: 'Review and submit',
-    sample_minority_language_text: 'Reviewo and sendo',
+    hmong_text: 'Tshawb xyuas thiab xa mus',
+    khmu_text: 'Review and submit',
   },
   'dispute.parcel_label': {
     lao_text: 'ເລືອກທີ່ດິນ',
     english_text: 'Pick the parcel',
-    sample_minority_language_text: 'Picko the landplot',
+    hmong_text: 'Xaiv thaj av',
+    khmu_text: 'Pick parcel',
   },
   'dispute.no_parcels': {
     lao_text: 'ບໍ່ພົບທີ່ດິນສຳລັບບ້ານນີ້.',
     english_text: 'No parcels found for this village.',
-    sample_minority_language_text: 'No landplot foundo for this baano.',
+    hmong_text: 'Tsis pom av rau lub zos no.',
+    khmu_text: 'No parcels',
   },
   'dispute.back': {
     lao_text: 'ກັບຄືນ',
     english_text: 'Back',
-    sample_minority_language_text: 'Backo',
+    hmong_text: 'Rov Qab',
+    khmu_text: 'Back',
   },
   'dispute.next': {
     lao_text: 'ຕໍ່ໄປ',
     english_text: 'Next',
-    sample_minority_language_text: 'Nexto',
+    hmong_text: 'Ntxiv',
+    khmu_text: 'Next',
   },
   'dispute.category.boundary': {
     lao_text: 'ບັນຫາຂອບເຂດທີ່ດິນ',
     english_text: 'Boundary problem',
-    sample_minority_language_text: 'Boundaryo problemo',
+    hmong_text: 'Teeb meem thaj tsam av',
+    khmu_text: 'Boundary problem',
   },
   'dispute.category.wrong_info': {
     lao_text: 'ຂໍ້ມູນທີ່ສະແດງບໍ່ຖືກຕ້ອງ',
     english_text: 'Wrong information shown',
-    sample_minority_language_text: 'Wrongo infoo shown',
+    hmong_text: 'Qhia tsis yog tseeb',
+    khmu_text: 'Wrong info',
   },
   'dispute.category.ownership': {
     lao_text: 'ໃຜເປັນເຈົ້າຂອງທີ່ດິນນີ້',
     english_text: 'Who owns this land',
-    sample_minority_language_text: 'Whoo owno this land',
+    hmong_text: 'Tus tswv av yog leej twg',
+    khmu_text: 'Who owns this land',
   },
   'dispute.category.other': {
     lao_text: 'ບັນຫາອື່ນໆ',
     english_text: 'Something else',
-    sample_minority_language_text: 'Somethingo elseo',
+    hmong_text: 'Lwm yam teeb meem',
+    khmu_text: 'Other',
   },
   'dispute.note_label': {
     lao_text: 'ລາຍລະອຽດເພີ່ມເຕີມ (ບໍ່ບັງຄັບ)',
     english_text: 'Extra detail (optional)',
-    sample_minority_language_text: 'Extrao detailo (optionalo)',
+    hmong_text: 'Ntsiab lus ntxiv',
+    khmu_text: 'Extra detail',
   },
   'dispute.review_village': {
     lao_text: 'ບ້ານ',
     english_text: 'Village',
-    sample_minority_language_text: 'Baano',
+    hmong_text: 'Zos',
+    khmu_text: 'Village',
   },
   'dispute.review_parcel': {
     lao_text: 'ທີ່ດິນ',
     english_text: 'Parcel',
-    sample_minority_language_text: 'Landploto',
+    hmong_text: 'Thaj Av',
+    khmu_text: 'Parcel',
   },
   'dispute.review_category': {
     lao_text: 'ບັນຫາ',
     english_text: 'Issue',
-    sample_minority_language_text: 'Issueo',
+    hmong_text: 'Teeb Meem',
+    khmu_text: 'Issue',
   },
   'dispute.review_note': {
     lao_text: 'ລາຍລະອຽດ',
     english_text: 'Detail',
-    sample_minority_language_text: 'Detailo',
+    hmong_text: 'Ntsiab Lus',
+    khmu_text: 'Detail',
   },
   'dispute.review_note_empty': {
     lao_text: 'ບໍ່ໄດ້ເພີ່ມ',
     english_text: 'None added',
-    sample_minority_language_text: 'Noneo addedo',
+    hmong_text: 'Tsis muaj',
+    khmu_text: 'None',
   },
   'dispute.submit_error': {
     lao_text: 'ມີຂໍ້ຜິດພາດ. ກະລຸນາລອງໃໝ່.',
     english_text: 'Something went wrong. Please try again.',
-    sample_minority_language_text: 'Somethingo wrongo. Try againo.',
+    hmong_text: 'Muaj teeb meem. Sim dua.',
+    khmu_text: 'Error, try again',
   },
   'dispute.confirmation_title': {
     lao_text: 'ຍື່ນສົ່ງແລ້ວ',
     english_text: 'Submitted',
-    sample_minority_language_text: 'Submittedo',
+    hmong_text: 'Xa Mus Lawm',
+    khmu_text: 'Submitted',
   },
   'dispute.confirmation_body': {
     lao_text: 'ບັນທຶກຄວາມກັງວົນຂອງທ່ານແລ້ວ.',
     english_text: 'Your concern has been recorded.',
-    sample_minority_language_text: 'Your concerno is recordedo.',
+    hmong_text: 'Koj cov teeb meem khaws tseg lawm.',
+    khmu_text: 'Concern recorded',
   },
   'dispute.confirmation_disclaimer': {
     lao_text: 'ນີ້ແມ່ນຕົວຢ່າງສາທິດເທົ່ານັ້ນ. ມັນບໍ່ໄດ້ສົ່ງຄວາມກັງວົນຂອງທ່ານໄປຫາຫ້ອງການທີ່ດິນ ຫຼື ອົງການໃດໆທີ່ແທ້ຈິງ.',
     english_text: 'This is a prototype demo. It does not send your concern to any real land office or authority.',
-    sample_minority_language_text: 'This is demoo only. It bo sendo to any realo officeo.',
+    hmong_text: 'Qhov no yog qauv sim xwb.',
+    khmu_text: 'Demo only',
   },
   'dispute.confirmation_new': {
     lao_text: 'ຍື່ນສົ່ງອີກ',
     english_text: 'Submit another',
-    sample_minority_language_text: 'Sendo anothero',
+    hmong_text: 'Xa dua tshiab',
+    khmu_text: 'Submit another',
   },
   'audio.play_button': {
     lao_text: 'ຫຼິ້ນຄຳອະທິບາຍ',
     english_text: 'Play explanation',
-    sample_minority_language_text: 'Playo explanationo',
+    hmong_text: 'Mloog lus piav',
+    khmu_text: 'Play explanation',
   },
   'audio.coming_soon_badge': {
     lao_text: 'ແນວຄິດອະນາຄົດ - ຍັງໃຊ້ບໍ່ໄດ້',
     english_text: 'Future idea — not yet functional',
-    sample_minority_language_text: 'Futuro ideao - not yeto workingo',
+    hmong_text: 'Mloog tau sai sai no',
+    khmu_text: 'Coming soon',
   },
 }
 
 type TranslationsContextValue = {
   language: Language
+  setLanguage: (lang: Language) => void
   toggleLanguage: () => void
   t: (key: string) => string
 }
@@ -265,7 +399,10 @@ const TranslationsContext = createContext<TranslationsContextValue | null>(null)
 
 export function TranslationsProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('lo')
-  const [rows, setRows] = useState<Record<string, TranslationEntry>>(FALLBACK_TRANSLATIONS)
+  const [rows, setRows] = useState<Record<string, TranslationEntry>>(() => {
+    const cached = getCachedTranslations()
+    return Object.keys(cached).length > 0 ? (cached as Record<string, TranslationEntry>) : FALLBACK_TRANSLATIONS
+  })
 
   useEffect(() => {
     if (!supabase) return
@@ -278,11 +415,13 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
           const next = { ...prev }
           for (const row of data) {
             next[row.key] = {
-              lao_text: row.lao_text,
-              english_text: row.english_text,
-              sample_minority_language_text: row.sample_minority_language_text,
+              lao_text: row.lao_text || '',
+              english_text: row.english_text || '',
+              hmong_text: row.sample_minority_language_text || '',
+              khmu_text: row.sample_minority_language_text || '',
             }
           }
+          cacheTranslations(next)
           return next
         })
       })
@@ -293,7 +432,8 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     if (!entry) return key
     if (language === 'lo') return entry.lao_text
     if (language === 'en') return entry.english_text
-    return entry.sample_minority_language_text
+    if (language === 'hm') return entry.hmong_text
+    return entry.khmu_text
   }
 
   function toggleLanguage() {
@@ -301,7 +441,7 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <TranslationsContext.Provider value={{ language, toggleLanguage, t }}>
+    <TranslationsContext.Provider value={{ language, setLanguage, toggleLanguage, t }}>
       {children}
     </TranslationsContext.Provider>
   )

@@ -26,7 +26,7 @@ function ParcelCard({ parcel }: { parcel: Parcel }) {
           <p className="text-xs text-gray-400 mt-1">{parcel.id}</p>
         </div>
       </div>
-      <PlayExplanationButton />
+      <PlayExplanationButton text={`${t(`status.${parcel.status}`)}. ${t(`zone.${parcel.zone_type}`)}. ID: ${parcel.id}`} />
     </div>
   )
 }

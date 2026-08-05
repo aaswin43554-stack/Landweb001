@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* Font Faces for Noto Sans Lao (Bundled Locally) */
+@font-face {
+  font-family: 'Noto Sans Lao';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/noto-sans-lao-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Noto Sans Lao';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/noto-sans-lao-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Noto Sans Lao';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/noto-sans-lao-700.woff2') format('woff2');
+}
+
 /*
   Base theme for the GIZ Land Use Transparency Prototype.
   Design constraints from the build guide: high contrast, large type,
@@ -36,3 +61,69 @@ input,
 select {
   font-size: 1rem;
 }
+
+/* High Contrast Mode Adjustments */
+html.high-contrast body {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+html.high-contrast .bg-white,
+html.high-contrast .bg-slate-50,
+html.high-contrast .bg-emerald-50,
+html.high-contrast .bg-amber-50,
+html.high-contrast .bg-red-50,
+html.high-contrast .bg-blue-50 {
+  background-color: #ffffff !important;
+}
+
+html.high-contrast .text-gray-400,
+html.high-contrast .text-gray-500,
+html.high-contrast .text-gray-600,
+html.high-contrast .text-slate-600,
+html.high-contrast .text-slate-500,
+html.high-contrast .text-slate-300,
+html.high-contrast .text-emerald-800,
+html.high-contrast .text-amber-800,
+html.high-contrast .text-red-800,
+html.high-contrast .text-blue-800 {
+  color: #000000 !important;
+}
+
+html.high-contrast .border-gray-200,
+html.high-contrast .border-slate-300,
+html.high-contrast .border-emerald-500,
+html.high-contrast .border-amber-500,
+html.high-contrast .border-red-500,
+html.high-contrast .border-blue-300,
+html.high-contrast .border-blue-400,
+html.high-contrast .border-amber-400,
+html.high-contrast .border-emerald-400,
+html.high-contrast .border-emerald-600,
+html.high-contrast .border-slate-400,
+html.high-contrast .border-slate-200 {
+  border-color: #000000 !important;
+  border-width: 3px !important;
+}
+
+html.high-contrast button {
+  border: 3px solid #000000 !important;
+  color: #000000 !important;
+}
+
+html.high-contrast .bg-emerald-700,
+html.high-contrast .bg-slate-800 {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast .bg-emerald-700 * {
+  color: #ffffff !important;
+}
+
+html.high-contrast select,
+html.high-contrast textarea {
+  border: 3px solid #000000 !important;
+  color: #000000 !important;
+}
+

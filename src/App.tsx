@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BottomNav } from './components/BottomNav'
 import { FictionalDataBanner } from './components/FictionalDataBanner'
 import { Header } from './components/Header'
@@ -8,9 +8,29 @@ import { DisputeFormScreen } from './screens/DisputeFormScreen'
 import { FieldOfficerScreen } from './screens/FieldOfficerScreen'
 import { LandUseExplainerScreen } from './screens/LandUseExplainerScreen'
 import { ParcelLookupScreen } from './screens/ParcelLookupScreen'
+import { preloadAndCacheAll } from './lib/land'
 
 function AppShell() {
   const [view, setView] = useState<AppView>({ mode: 'citizen', screen: 'parcel-lookup' })
+  const [highContrast, setHighContrast] = useState(() => {
+    return localStorage.getItem('giz-a11y-high-contrast') === 'true'
+  })
+  const [iconOnlyNav, setIconOnlyNav] = useState(() => {
+    return localStorage.getItem('giz-a11y-icon-only-nav') === 'true'
+  })
+
+  useEffect(() => {
+    preloadAndCacheAll()
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('high-contrast', highContrast)
+    localStorage.setItem('giz-a11y-high-contrast', String(highContrast))
+  }, [highContrast])
+
+  useEffect(() => {
+    localStorage.setItem('giz-a11y-icon-only-nav', String(iconOnlyNav))
+  }, [iconOnlyNav])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,6 +39,10 @@ function AppShell() {
         mode={view.mode}
         onEnterFieldOfficer={() => setView({ mode: 'field-officer' })}
         onExitFieldOfficer={() => setView({ mode: 'citizen', screen: 'parcel-lookup' })}
+        highContrast={highContrast}
+        onToggleHighContrast={() => setHighContrast(!highContrast)}
+        iconOnlyNav={iconOnlyNav}
+        onToggleIconOnlyNav={() => setIconOnlyNav(!iconOnlyNav)}
       />
 
       <main className="flex-1 flex flex-col">
@@ -29,7 +53,11 @@ function AppShell() {
       </main>
 
       {view.mode === 'citizen' && (
-        <BottomNav active={view.screen} onChange={(screen) => setView({ mode: 'citizen', screen })} />
+        <BottomNav 
+          active={view.screen} 
+          onChange={(screen) => setView({ mode: 'citizen', screen })} 
+          iconOnly={iconOnlyNav}
+        />
       )}
     </div>
   )
@@ -44,3 +72,4 @@ function App() {
 }
 
 export default App
+

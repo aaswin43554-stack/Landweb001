@@ -5,6 +5,7 @@ import { FlagIcon, MapIcon, SearchIcon } from './icons'
 type Props = {
   active: CitizenScreen
   onChange: (screen: CitizenScreen) => void
+  iconOnly?: boolean
 }
 
 const TABS: { screen: CitizenScreen; Icon: typeof SearchIcon; labelKey: string }[] = [
@@ -13,7 +14,7 @@ const TABS: { screen: CitizenScreen; Icon: typeof SearchIcon; labelKey: string }
   { screen: 'dispute-form', Icon: FlagIcon, labelKey: 'nav.dispute_form' },
 ]
 
-export function BottomNav({ active, onChange }: Props) {
+export function BottomNav({ active, onChange, iconOnly = false }: Props) {
   const { t } = useTranslations()
 
   return (
@@ -26,13 +27,15 @@ export function BottomNav({ active, onChange }: Props) {
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-label={t(labelKey)}
+            title={t(labelKey)}
             onClick={() => onChange(screen)}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 px-1 text-xs font-semibold ${
-              isActive ? 'text-emerald-700' : 'text-gray-500'
-            }`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-all ${
+              iconOnly ? 'py-4' : 'py-3 text-xs font-semibold'
+            } ${isActive ? 'text-emerald-700' : 'text-gray-500'}`}
           >
-            <Icon className={`w-7 h-7 ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
-            <span className="leading-tight text-center">{t(labelKey)}</span>
+            <Icon className={`w-8 h-8 ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
+            {!iconOnly && <span className="leading-tight text-center">{t(labelKey)}</span>}
           </button>
         )
       })}

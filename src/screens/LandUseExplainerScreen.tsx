@@ -196,8 +196,7 @@ export function LandUseExplainerScreen() {
             </div>
 
             <p className="text-base text-gray-800">{t(`zone_explain.${selected.zone_type}`)}</p>
-
-            <PlayExplanationButton />
+            <PlayExplanationButton text={t(`zone_explain.${selected.zone_type}`)} />
 
             <div className="text-sm text-gray-500 border-t border-gray-100 pt-3">
               <p>
