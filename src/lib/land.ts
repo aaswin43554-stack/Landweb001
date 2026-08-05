@@ -367,25 +367,54 @@ export type Dispute = {
 const DISPUTE_COLUMNS =
   'id, parcel_id, submitted_by, description, status, fake_reference_number, created_at, parcel:parcels(demo_village_name, village_id, zone_type)'
 
+function parseEvidenceFromDescription(description: string | null): {
+  cleanDescription: string | null
+  photos: string[]
+  audio: string | null
+} {
+  if (!description) return { cleanDescription: null, photos: [], audio: null }
+
+  let cleanDescription = description
+  const photos: string[] = []
+  let audio: string | null = null
+
+  // Extract photos (handles single or multiple comma-separated URLs)
+  const photoRegex = /\[Photo Evidence:\s*([^\]]+)\]/i
+  const photoMatch = cleanDescription.match(photoRegex)
+  if (photoMatch && photoMatch[1]) {
+    const urls = photoMatch[1].split(',').map((url) => url.trim())
+    photos.push(...urls)
+    cleanDescription = cleanDescription.replace(photoMatch[0], '')
+  }
+
+  // Extract audio (handles single URL)
+  const audioRegex = /\[Audio Evidence:\s*([^\]]+)\]/i
+  const audioMatch = cleanDescription.match(audioRegex)
+  if (audioMatch && audioMatch[1]) {
+    audio = audioMatch[1].trim()
+    cleanDescription = cleanDescription.replace(audioMatch[0], '')
+  }
+
+  // Clean double spaces and extra trailing delimiters
+  cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim()
+  if (cleanDescription.endsWith('—')) {
+    cleanDescription = cleanDescription.slice(0, -1).trim()
+  }
+
+  return { cleanDescription, photos, audio }
+}
+
 export async function fetchDisputes(): Promise<Dispute[]> {
   const client = supabase
 
   // Load offline queued disputes
   const queue = getDisputeQueue()
   const queuedDisputes: Dispute[] = queue.map((d) => {
-    let description = [DISPUTE_CATEGORY_LABELS[d.category as DisputeCategory], d.note.trim()].filter(Boolean).join(' — ')
-    if (d.photos && d.photos.length > 0) {
-      description += ` [Evidence: ${d.photos.length} photos]`
-    }
-    if (d.audio) {
-      description += ' [Evidence: 1 voice note]'
-    }
-
     return {
       id: d.id,
       parcel_id: d.parcelId,
       submitted_by: DEMO_SUBMITTER,
-      description,
+      description: [DISPUTE_CATEGORY_LABELS[d.category as DisputeCategory] || d.category, d.note.trim()].filter(Boolean).join(' — '),
       status: 'submitted',
       fake_reference_number: d.id,
       created_at: new Date(d.timestamp).toISOString(),
@@ -403,10 +432,16 @@ export async function fetchDisputes(): Promise<Dispute[]> {
         .select(DISPUTE_COLUMNS)
         .order('created_at', { ascending: false })
       if (data && !error) {
-        dbDisputes = data.map((row) => ({
-          ...row,
-          parcel: Array.isArray(row.parcel) ? (row.parcel[0] ?? null) : row.parcel,
-        })) as Dispute[]
+        dbDisputes = data.map((row) => {
+          const parsed = parseEvidenceFromDescription(row.description)
+          return {
+            ...row,
+            description: parsed.cleanDescription,
+            photos: parsed.photos,
+            audio: parsed.audio,
+            parcel: Array.isArray(row.parcel) ? (row.parcel[0] ?? null) : row.parcel,
+          }
+        }) as Dispute[]
       }
     } catch {
       // Offline fallback for database fetch
