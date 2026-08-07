@@ -1,32 +1,18 @@
 /**
- * Offline-first storage layer for the GIZ Land Use Transparency Prototype.
- * Provides localStorage/IndexedDB caching for villages, parcels, translations,
- * and dispute submissions with automatic sync when online.
+ * Offline-first database storage layer for the GIZ Land Use Transparency Prototype.
+ * Upgraded from localStorage to Dexie-backed IndexedDB for high-capacity offline reliability,
+ * allowing local binary uploads, large village parcel polygons caches, and transaction safety.
  */
 
+import Dexie, { type Table } from 'dexie'
 import type { Village, Parcel } from './land'
 
-// Storage keys
-const STORAGE_KEYS = {
-  VILLAGES: 'giz-offline-villages',
-  PARCELS: 'giz-offline-parcels',
-  TRANSLATIONS: 'giz-offline-translations',
-  DISPUTE_QUEUE: 'giz-offline-dispute-queue',
-  LAST_SYNC: 'giz-offline-last-sync',
-  CACHE_VERSION: 'giz-offline-cache-version',
-  DISPUTE_OVERRIDES: 'giz-offline-dispute-overrides',
-} as const
-
-// Cache version - increment when data structure changes
-const CACHE_VERSION = 2
-
-// Type definitions
-export type CachedVillages = Village[]
-export type CachedParcels = Parcel[]
+// Custom types for IndexedDB
 export type CachedTranslations = Record<string, { lao_text: string; english_text: string; hmong_text: string; khmu_text: string }>
 
 export type QueuedDispute = {
   id: string
+  referenceNumber: string
   parcelId: string
   category: string
   note: string
@@ -43,175 +29,259 @@ export type SyncStatus = {
   hasCachedData: boolean
 }
 
-/**
- * Check if we're running in a browser environment
- */
-function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+export type DisputeOverride = {
+  id: string
+  status: 'submitted' | 'in_review' | 'resolved'
+  comment: string
+  updatedAt: number
 }
 
-/**
- * Generic localStorage getter with error handling
- */
-function getFromStorage<T>(key: string, defaultValue: T): T {
-  if (!isBrowser()) return defaultValue
+export type LocalDisputeEvent = {
+  disputeId: string
+  fromStatus: string | null
+  toStatus: string
+  actor: string
+  note: string | null
+  createdAt: number
+}
+
+export interface MetadataRecord {
+  key: string
+  value: any
+}
+
+// Dexie Database definition
+class LandDatabase extends Dexie {
+  villages!: Table<Village, string>
+  parcels!: Table<Parcel, string>
+  translations!: Table<{ key: string; lao_text: string; english_text: string; hmong_text: string; khmu_text: string }, string>
+  disputeQueue!: Table<QueuedDispute, string>
+  disputeOverrides!: Table<DisputeOverride, string>
+  disputeEvents!: Table<LocalDisputeEvent, string>
+  metadata!: Table<MetadataRecord, string>
+
+  constructor() {
+    super('giz-land-db')
+    this.version(4).stores({
+      villages: 'id, name',
+      parcels: 'id, village_id, status, zone_type',
+      translations: 'key',
+      disputeQueue: 'id, parcelId, category',
+      disputeOverrides: 'id, status',
+      disputeEvents: '++idx, disputeId, toStatus',
+      metadata: 'key',
+    })
+  }
+}
+
+export const db = new LandDatabase()
+
+const CACHE_VERSION = 4
+
+// ============================================================================
+// METADATA HELPERS
+// ============================================================================
+
+async function getMetadata<T>(key: string, defaultValue: T): Promise<T> {
   try {
-    const item = localStorage.getItem(key)
-    return item ? JSON.parse(item) : defaultValue
+    const record = await db.metadata.get(key)
+    return record ? (record.value as T) : defaultValue
   } catch {
     return defaultValue
   }
 }
 
-/**
- * Generic localStorage setter with error handling
- */
-function setToStorage<T>(key: string, value: T): boolean {
-  if (!isBrowser()) return false
+async function setMetadata<T>(key: string, value: T): Promise<boolean> {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    await db.metadata.put({ key, value })
     return true
   } catch {
     return false
   }
 }
 
-
-
 /**
- * Invalidate cache by clearing all stored data
+ * Initialize cache version on first load. Clear all tables on mismatch.
  */
-export function clearOfflineCache(): void {
-  if (!isBrowser()) return
-  Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key))
-}
-
-/**
- * Initialize cache version on first load
- */
-function initCacheVersion(): void {
-  if (!isBrowser()) return
-  const currentVersion = getFromStorage<number>(STORAGE_KEYS.CACHE_VERSION, 0)
+async function initCacheVersion(): Promise<void> {
+  const currentVersion = await getMetadata<number>('cache-version', 0)
   if (currentVersion !== CACHE_VERSION) {
-    clearOfflineCache()
-    setToStorage(STORAGE_KEYS.CACHE_VERSION, CACHE_VERSION)
+    await Promise.all([
+      db.villages.clear(),
+      db.parcels.clear(),
+      db.translations.clear(),
+      db.disputeQueue.clear(),
+      db.disputeOverrides.clear(),
+      db.disputeEvents.clear(),
+      db.metadata.clear(),
+    ])
+    await setMetadata('cache-version', CACHE_VERSION)
   }
 }
 
-// Initialize on module load
-initCacheVersion()
+// Run version checks immediately
+initCacheVersion().catch(err => console.warn('Database initialization failed:', err))
 
 // ============================================================================
 // VILLAGES CACHE
 // ============================================================================
 
-export function cacheVillages(villages: Village[]): boolean {
-  return setToStorage(STORAGE_KEYS.VILLAGES, villages)
+export async function cacheVillages(villages: Village[]): Promise<boolean> {
+  try {
+    await db.villages.bulkPut(villages)
+    return true
+  } catch {
+    return false
+  }
 }
 
-export function getCachedVillages(): Village[] {
-  return getFromStorage<CachedVillages>(STORAGE_KEYS.VILLAGES, [])
+export async function getCachedVillages(): Promise<Village[]> {
+  return db.villages.toArray()
 }
 
-export function hasCachedVillages(): boolean {
-  return getCachedVillages().length > 0
+export async function hasCachedVillages(): Promise<boolean> {
+  const count = await db.villages.count()
+  return count > 0
 }
 
 // ============================================================================
 // PARCELS CACHE
 // ============================================================================
 
-export function cacheParcels(parcels: Parcel[]): boolean {
-  return setToStorage(STORAGE_KEYS.PARCELS, parcels)
+export async function cacheParcels(parcels: Parcel[]): Promise<boolean> {
+  try {
+    await db.parcels.bulkPut(parcels)
+    return true
+  } catch {
+    return false
+  }
 }
 
-export function getCachedParcels(): Parcel[] {
-  return getFromStorage<CachedParcels>(STORAGE_KEYS.PARCELS, [])
+export async function getCachedParcels(): Promise<Parcel[]> {
+  return db.parcels.toArray()
 }
 
-export function getCachedParcelsByVillage(villageId: string): Parcel[] {
-  const allParcels = getCachedParcels()
-  return allParcels.filter(p => p.village_id === villageId)
+export async function getCachedParcelsByVillage(villageId: string): Promise<Parcel[]> {
+  return db.parcels.where('village_id').equals(villageId).toArray()
 }
 
-export function hasCachedParcels(): boolean {
-  return getCachedParcels().length > 0
+export async function hasCachedParcels(): Promise<boolean> {
+  const count = await db.parcels.count()
+  return count > 0
 }
 
 // ============================================================================
 // TRANSLATIONS CACHE
 // ============================================================================
 
-export function cacheTranslations(translations: CachedTranslations): boolean {
-  return setToStorage(STORAGE_KEYS.TRANSLATIONS, translations)
+export async function cacheTranslations(translations: CachedTranslations): Promise<boolean> {
+  try {
+    const rows = Object.entries(translations).map(([key, item]) => ({
+      key,
+      ...item,
+    }))
+    await db.translations.bulkPut(rows)
+    return true
+  } catch {
+    return false
+  }
 }
 
-export function getCachedTranslations(): CachedTranslations {
-  return getFromStorage<CachedTranslations>(STORAGE_KEYS.TRANSLATIONS, {})
+export async function getCachedTranslations(): Promise<CachedTranslations> {
+  const rows = await db.translations.toArray()
+  const map: CachedTranslations = {}
+  for (const row of rows) {
+    map[row.key] = {
+      lao_text: row.lao_text,
+      english_text: row.english_text,
+      hmong_text: row.hmong_text,
+      khmu_text: row.khmu_text,
+    }
+  }
+  return map
 }
 
-export function hasCachedTranslations(): boolean {
-  return Object.keys(getCachedTranslations()).length > 0
+export async function hasCachedTranslations(): Promise<boolean> {
+  const count = await db.translations.count()
+  return count > 0
 }
 
 // ============================================================================
 // DISPUTE QUEUE (for offline submissions)
 // ============================================================================
 
-export function queueDispute(dispute: Omit<QueuedDispute, 'id' | 'timestamp' | 'retries'>): string {
-  const queue = getDisputeQueue()
-  const id = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+export async function queueDispute(dispute: Omit<QueuedDispute, 'id' | 'referenceNumber' | 'timestamp' | 'retries'> & { id?: string; referenceNumber?: string }): Promise<string> {
+  const id = dispute.id || `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   const newDispute: QueuedDispute = {
     ...dispute,
     id,
+    referenceNumber: dispute.referenceNumber || id,
     timestamp: Date.now(),
     retries: 0,
   }
-  queue.push(newDispute)
-  setToStorage(STORAGE_KEYS.DISPUTE_QUEUE, queue)
+  await db.disputeQueue.put(newDispute)
   return id
 }
 
-export function getDisputeQueue(): QueuedDispute[] {
-  return getFromStorage<QueuedDispute[]>(STORAGE_KEYS.DISPUTE_QUEUE, [])
+export async function getDisputeQueue(): Promise<QueuedDispute[]> {
+  return db.disputeQueue.toArray()
 }
 
-export function removeDisputeFromQueue(id: string): boolean {
-  const queue = getDisputeQueue()
-  const filtered = queue.filter(d => d.id !== id)
-  return setToStorage(STORAGE_KEYS.DISPUTE_QUEUE, filtered)
+export async function findQueuedDisputeByReference(reference: string): Promise<QueuedDispute | null> {
+  const needle = reference.trim().toLowerCase()
+  const queue = await getDisputeQueue()
+  return queue.find(d => d.referenceNumber.toLowerCase() === needle || d.id.toLowerCase() === needle) ?? null
 }
 
-export function incrementDisputeRetry(id: string): boolean {
-  const queue = getDisputeQueue()
-  const dispute = queue.find(d => d.id === id)
-  if (!dispute) return false
-  dispute.retries += 1
-  return setToStorage(STORAGE_KEYS.DISPUTE_QUEUE, queue)
+export async function removeDisputeFromQueue(id: string): Promise<boolean> {
+  try {
+    await db.disputeQueue.delete(id)
+    return true
+  } catch {
+    return false
+  }
 }
 
-export function getPendingDisputeCount(): number {
-  return getDisputeQueue().length
+export async function incrementDisputeRetry(id: string): Promise<boolean> {
+  try {
+    const record = await db.disputeQueue.get(id)
+    if (!record) return false
+    record.retries += 1
+    await db.disputeQueue.put(record)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function getPendingDisputeCount(): Promise<number> {
+  return db.disputeQueue.count()
 }
 
 // ============================================================================
 // SYNC STATUS & TIMESTAMPS
 // ============================================================================
 
-export function updateLastSync(): boolean {
-  return setToStorage(STORAGE_KEYS.LAST_SYNC, Date.now())
+export async function updateLastSync(): Promise<boolean> {
+  return setMetadata('last-sync', Date.now())
 }
 
-export function getLastSync(): number | null {
-  return getFromStorage<number | null>(STORAGE_KEYS.LAST_SYNC, null)
+export async function getLastSync(): Promise<number | null> {
+  return getMetadata<number | null>('last-sync', null)
 }
 
-export function getSyncStatus(isOnline: boolean): SyncStatus {
+export async function getSyncStatus(isOnline: boolean): Promise<SyncStatus> {
+  const lastSync = await getLastSync()
+  const pendingCount = await getPendingDisputeCount()
+  const vCached = await hasCachedVillages()
+  const pCached = await hasCachedParcels()
+  const tCached = await hasCachedTranslations()
+
   return {
     isOnline,
-    lastSync: getLastSync(),
-    pendingCount: getPendingDisputeCount(),
-    hasCachedData: hasCachedVillages() && hasCachedParcels() && hasCachedTranslations(),
+    lastSync,
+    pendingCount,
+    hasCachedData: vCached && pCached && tCached,
   }
 }
 
@@ -232,38 +302,61 @@ export function formatLastSync(lastSync: number | null): string {
 // COMPOSITE CACHE OPERATIONS
 // ============================================================================
 
-export function cacheAllData(villages: Village[], parcels: Parcel[], translations: CachedTranslations): boolean {
-  const villagesOk = cacheVillages(villages)
-  const parcelsOk = cacheParcels(parcels)
-  const translationsOk = cacheTranslations(translations)
-  const syncOk = updateLastSync()
+export async function cacheAllData(villages: Village[], parcels: Parcel[], translations: CachedTranslations): Promise<boolean> {
+  const villagesOk = await cacheVillages(villages)
+  const parcelsOk = await cacheParcels(parcels)
+  const translationsOk = await cacheTranslations(translations)
+  const syncOk = await updateLastSync()
   return villagesOk && parcelsOk && translationsOk && syncOk
 }
 
-export function hasAnyCachedData(): boolean {
-  return hasCachedVillages() || hasCachedParcels() || hasCachedTranslations()
+export async function hasAnyCachedData(): Promise<boolean> {
+  const vCached = await hasCachedVillages()
+  const pCached = await hasCachedParcels()
+  const tCached = await hasCachedTranslations()
+  return vCached || pCached || tCached
 }
 
 // ============================================================================
 // DISPUTE RESOLUTION OVERRIDES (for offline officer actions)
 // ============================================================================
 
-export type DisputeOverride = {
-  status: 'submitted' | 'in_review' | 'resolved'
-  comment: string
-  updatedAt: number
+export async function getDisputeOverrides(): Promise<Record<string, Omit<DisputeOverride, 'id'>>> {
+  const records = await db.disputeOverrides.toArray()
+  const map: Record<string, Omit<DisputeOverride, 'id'>> = {}
+  for (const r of records) {
+    map[r.id] = {
+      status: r.status,
+      comment: r.comment,
+      updatedAt: r.updatedAt,
+    }
+  }
+  return map
 }
 
-export function getDisputeOverrides(): Record<string, DisputeOverride> {
-  return getFromStorage<Record<string, DisputeOverride>>(STORAGE_KEYS.DISPUTE_OVERRIDES, {})
-}
-
-export function saveDisputeOverride(id: string, status: 'submitted' | 'in_review' | 'resolved', comment: string): void {
-  const overrides = getDisputeOverrides()
-  overrides[id] = {
+export async function saveDisputeOverride(id: string, status: 'submitted' | 'in_review' | 'resolved', comment: string): Promise<void> {
+  await db.disputeOverrides.put({
+    id,
     status,
     comment,
     updatedAt: Date.now(),
-  }
-  setToStorage(STORAGE_KEYS.DISPUTE_OVERRIDES, overrides)
-}
+  })
+}
+
+// ============================================================================
+// LOCAL DISPUTE EVENTS
+// ============================================================================
+
+export async function getLocalDisputeEvents(): Promise<LocalDisputeEvent[]> {
+  return db.disputeEvents.toArray()
+}
+
+export async function appendLocalDisputeEvent(event: LocalDisputeEvent): Promise<void> {
+  await db.disputeEvents.put(event)
+}
+
+export async function getLocalDisputeEventsFor(...ids: (string | null | undefined)[]): Promise<LocalDisputeEvent[]> {
+  const wanted = new Set(ids.filter(Boolean).map(id => (id as string).toLowerCase()))
+  const allEvents = await getLocalDisputeEvents()
+  return allEvents.filter(e => wanted.has(e.disputeId.toLowerCase()))
+}

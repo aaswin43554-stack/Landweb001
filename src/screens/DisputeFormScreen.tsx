@@ -19,6 +19,8 @@ import {
   type ZoneType,
 } from '../lib/land'
 import { useTranslations } from '../lib/translations'
+import { QrCode } from '../components/QrCode'
+import { buildSyncPayload, encodeSyncPayload } from '../lib/syncPayload'
 
 const ZONE_ICONS: Record<ZoneType, typeof TreeIcon> = {
   forest: TreeIcon,
@@ -165,72 +167,6 @@ function initialState() {
   }
 }
 
-// Simple deterministic QR-like matrix grid generator
-function drawP2PGrid(canvas: HTMLCanvasElement | null, dataStr: string) {
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const size = 200
-  canvas.width = size
-  canvas.height = size
-
-  // Background
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, size, size)
-
-  // Draw QR finder patterns in corners
-  ctx.fillStyle = '#000000'
-  
-  // Top-left
-  ctx.fillRect(10, 10, 45, 45)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(17, 17, 31, 31)
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(24, 24, 17, 17)
-
-  // Top-right
-  ctx.fillRect(145, 10, 45, 45)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(152, 17, 31, 31)
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(159, 24, 17, 17)
-
-  // Bottom-left
-  ctx.fillRect(10, 145, 45, 45)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(17, 152, 31, 31)
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(24, 159, 17, 17)
-
-  // Seeded random matrix generation based on data string
-  let hash = 0
-  for (let i = 0; i < dataStr.length; i++) {
-    hash = dataStr.charCodeAt(i) + ((hash << 5) - hash)
-  }
-
-  const cellSize = 8
-  const gridOffset = 60
-  const gridCells = 10
-
-  for (let r = 0; r < gridCells; r++) {
-    for (let c = 0; c < gridCells; c++) {
-      const bitIndex = r * gridCells + c
-      const randomVal = Math.abs(Math.sin(hash + bitIndex))
-      if (randomVal > 0.45) {
-        ctx.fillStyle = '#000000'
-        ctx.fillRect(gridOffset + c * cellSize, gridOffset + r * cellSize, cellSize, cellSize)
-      }
-    }
-  }
-
-  // Draw some extra random blocks in empty areas
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(120, 120, 16, 16)
-  ctx.fillRect(40, 100, 8, 16)
-  ctx.fillRect(100, 40, 16, 8)
-}
-
 export function DisputeFormScreen() {
   const { t, language } = useTranslations()
   const [villages, setVillages] = useState<Village[]>([])
@@ -248,11 +184,10 @@ export function DisputeFormScreen() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<number | null>(null)
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     fetchVillages().then(setVillages)
-    
+
     // Cleanups
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop()
@@ -260,23 +195,6 @@ export function DisputeFormScreen() {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
     }
   }, [])
-
-  // Draw P2P code when references are ready
-  useEffect(() => {
-    if (referenceNumber) {
-      const disputeData = JSON.stringify({
-        id: referenceNumber,
-        parcelId: selectedParcelId,
-        category,
-        note,
-        photos,
-        audio,
-      })
-      setTimeout(() => {
-        drawP2PGrid(qrCanvasRef.current, disputeData)
-      }, 100)
-    }
-  }, [referenceNumber])
 
   async function handleVillageChange(villageId: string) {
     setState((s) => ({ ...s, selectedVillageId: villageId, selectedParcelId: '', parcels: [] }))
@@ -469,16 +387,21 @@ export function DisputeFormScreen() {
     setState((s) => ({ ...s, audio: null }))
   }
 
+  function buildCurrentSyncCode() {
+    return encodeSyncPayload(
+      buildSyncPayload({
+        referenceNumber: referenceNumber ?? '',
+        parcelId: selectedParcelId,
+        category: category ?? 'other',
+        note,
+        photos,
+        audio,
+      }),
+    )
+  }
+
   function copyP2PCode() {
-    const disputeData = JSON.stringify({
-      id: referenceNumber,
-      parcelId: selectedParcelId,
-      category,
-      note,
-      photos,
-      audio,
-    })
-    navigator.clipboard.writeText(disputeData)
+    navigator.clipboard.writeText(buildCurrentSyncCode())
     alert('Offline Sync Code copied! Paste it in the Field Officer dashboard to import.')
   }
 
@@ -492,6 +415,7 @@ export function DisputeFormScreen() {
         <div className="w-full rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3.5 shadow-sm">
           <p className="text-xs font-semibold text-emerald-800">{t('dispute.reference_label')}</p>
           <p className="text-xl font-bold text-emerald-900 tracking-wide mt-0.5">{referenceNumber}</p>
+          <p className="text-xs text-emerald-800 mt-2">{t('dispute.keep_reference')}</p>
         </div>
 
         {/* Offline Queued Warning */}
@@ -510,10 +434,19 @@ export function DisputeFormScreen() {
           <p className="text-xs text-gray-500">
             Let a field officer scan this code with their device camera to import this dispute instantly.
           </p>
-          
+
           <div className="relative border-4 border-gray-100 p-2 rounded-xl bg-white">
-            <canvas ref={qrCanvasRef} className="w-44 h-44" />
+            <QrCode value={buildCurrentSyncCode()} size={176} className="w-44 h-44" />
           </div>
+
+          {(photos.length > 0 || audio) && (
+            <p className="text-[11px] text-gray-500 text-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5">
+              Your {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''}` : ''}
+              {photos.length > 0 && audio ? ' and ' : ''}
+              {audio ? 'voice note' : ''} stay on this phone — the code carries the case details, and
+              the evidence uploads once you have a connection.
+            </p>
+          )}
 
           <button
             type="button"

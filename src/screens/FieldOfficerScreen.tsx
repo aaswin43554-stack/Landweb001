@@ -22,6 +22,9 @@ import {
 } from '../lib/land'
 import { useTranslations } from '../lib/translations'
 import { queueDispute } from '../lib/offlineStorage'
+import { parseSyncPayload } from '../lib/syncPayload'
+import { QrScanner } from '../components/QrScanner'
+import { EvidenceGallery } from '../components/EvidenceGallery'
 
 const ZONE_ICONS: Record<ZoneType, typeof TreeIcon> = {
   forest: TreeIcon,
@@ -38,29 +41,18 @@ const STATUS_META: Record<DisputeStatus, { label: string; Icon: typeof ClockIcon
 
 const STATUS_FILTERS: (DisputeStatus | 'all')[] = ['all', 'submitted', 'in_review', 'resolved']
 
-function splitDescription(description: string | null): { category: string; note: string; remark: string } {
-  if (!description) return { category: 'Uncategorized', note: '', remark: '' }
-  
-  // Extract officer remarks if present
-  let remark = ''
-  let cleanDesc = description
-  const remarkIdx = description.indexOf('\n[Officer Remark:')
-  if (remarkIdx !== -1) {
-    remark = description.slice(remarkIdx + 18, -1)
-    cleanDesc = description.slice(0, remarkIdx)
-  }
+function splitDescription(description: string | null): { category: string; note: string } {
+  if (!description) return { category: 'Uncategorized', note: '' }
+  const parts = description.split(' — ')
+  return { category: parts[0] || 'Uncategorized', note: parts.slice(1).join(' — ') }
+}
 
-  // Split Category and notes
-  const parts = cleanDesc.split(' — ')
-  const category = parts[0] || 'Uncategorized'
-  // Remove evidence indicators from note if present
-  let note = parts.slice(1).join(' — ')
-  const evidenceIdx = note.indexOf(' [Evidence:')
-  if (evidenceIdx !== -1) {
-    note = note.slice(0, evidenceIdx)
-  }
-
-  return { category, note, remark }
+/**
+ * The most recent officer remark for a dispute, or '' if there is none.
+ */
+function latestRemark(dispute: Dispute): string {
+  const withNotes = (dispute.events ?? []).filter((e) => e.note)
+  return withNotes.length > 0 ? (withNotes[withNotes.length - 1].note as string) : ''
 }
 
 function formatDate(iso: string): string {
@@ -88,6 +80,7 @@ export function FieldOfficerScreen() {
 
   // P2P import states
   const [showImportPanel, setShowImportPanel] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
   const [p2pCodeInput, setP2pCodeInput] = useState('')
   const [importError, setImportError] = useState(false)
 
@@ -114,65 +107,66 @@ export function FieldOfficerScreen() {
   }, [disputes, villageFilter, statusFilter, sortAsc])
 
   // Import Dispute from QR code / text stream
-  function handleImportSubmit() {
-    try {
-      setImportError(false)
-      const data = JSON.parse(p2pCodeInput.trim())
-      if (!data.id || !data.parcelId || !data.category) {
-        setImportError(true)
-        return
-      }
-
-      // Add to local dispute queue
-      queueDispute({
-        parcelId: data.parcelId,
-        category: data.category,
-        note: data.note || '',
-        photos: data.photos || [],
-        audio: data.audio || null,
-      })
-
-      setP2pCodeInput('')
-      setShowImportPanel(false)
-      alert('Dispute imported successfully into local offline queue!')
-      loadData()
-    } catch {
+  async function handleImportSubmit(raw: string = p2pCodeInput) {
+    const payload = parseSyncPayload(raw)
+    if (!payload) {
       setImportError(true)
+      return
     }
-  }
 
-  // Simulate scanning of code
-  function handleSimulatedScan() {
-    // Mock dispute payload
-    const mockPayload = {
-      id: `DEMO-SCAN-${Date.now()}`,
-      parcelId: 'DEMO-PARCEL-0002',
-      category: 'boundary',
-      note: 'Citizen reports fence moved by 3 meters during offline agricultural harvest.',
+    setImportError(false)
+    await queueDispute({
+      id: payload.id,
+      referenceNumber: payload.id,
+      parcelId: payload.parcelId,
+      category: payload.category,
+      note: payload.note,
       photos: [],
       audio: null,
-    }
-    setP2pCodeInput(JSON.stringify(mockPayload, null, 2))
-    alert('Simulated QR Code scan successful! Click "Import Dispute" to load into queue.')
+    })
+
+    setP2pCodeInput('')
+    setShowImportPanel(false)
+
+    const pending = [
+      payload.photoCount > 0 ? `${payload.photoCount} photo(s)` : null,
+      payload.hasAudio ? 'a voice note' : null,
+    ].filter(Boolean)
+
+    alert(
+      pending.length > 0
+        ? `Imported ${payload.id}. ${pending.join(' and ')} remain on the citizen's device and will sync when either device is online.`
+        : `Imported ${payload.id} into the local offline queue.`,
+    )
+    loadData()
+  }
+
+  function handleScanResult(value: string) {
+    setShowScanner(false)
+    setP2pCodeInput(value)
+    handleImportSubmit(value)
   }
 
   // Expand dispute card for case management
   function openDisputeDetails(d: Dispute) {
-    const { remark } = splitDescription(d.description)
     setSelectedDispute(d)
     setActionStatus(d.status)
-    setActionComment(remark)
+    setActionComment('')
   }
 
   // Save dispute action updates
   async function handleSaveAction() {
     if (!selectedDispute) return
     setIsSavingAction(true)
-    const success = await updateDisputeStatus(selectedDispute.id, actionStatus, actionComment.trim())
+    const success = await updateDisputeStatus(
+      selectedDispute.id,
+      actionStatus,
+      actionComment.trim(),
+    )
     setIsSavingAction(false)
     if (success) {
       setSelectedDispute(null)
-      alert('Case resolution updated successfully!')
+      alert('Case updated. The citizen can now see this on their "My Case" screen.')
       loadData()
     } else {
       alert('Error updating case resolution status.')
@@ -237,7 +231,7 @@ export function FieldOfficerScreen() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={handleImportSubmit}
+                onClick={() => handleImportSubmit()}
                 disabled={!p2pCodeInput.trim()}
                 className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg text-xs font-bold"
               >
@@ -245,10 +239,10 @@ export function FieldOfficerScreen() {
               </button>
               <button
                 type="button"
-                onClick={handleSimulatedScan}
+                onClick={() => setShowScanner(true)}
                 className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
               >
-                Simulate QR Scan
+                Scan QR Code
               </button>
             </div>
           </div>
@@ -304,7 +298,8 @@ export function FieldOfficerScreen() {
         <div className="flex flex-col gap-3">
           {filtered.map((d) => {
             const meta = STATUS_META[d.status]
-            const { category, note, remark } = splitDescription(d.description)
+            const { category, note } = splitDescription(d.description)
+            const remark = latestRemark(d)
             const ZoneIcon = d.parcel ? ZONE_ICONS[d.parcel.zone_type] : AlertIcon
             
             // Check if this dispute contains evidence markers
@@ -365,6 +360,15 @@ export function FieldOfficerScreen() {
         </div>
       </div>
 
+      {showScanner && (
+        <QrScanner
+          title="Scan citizen sync code"
+          hint="Point the camera at the QR code on the citizen's phone."
+          onResult={handleScanResult}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       {/* Case Management Resolution Drawer overlay */}
       {selectedDispute && (
         <div
@@ -404,31 +408,32 @@ export function FieldOfficerScreen() {
               
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 mt-1">
                 <p className="font-bold text-xs uppercase text-slate-400">Citizen Note</p>
-                <p className="text-slate-800 font-semibold mt-1">
+                <p className="text-slate-800 font-semibold mt-1 whitespace-pre-wrap break-words">
                   {splitDescription(selectedDispute.description).note || 'No notes added by citizen.'}
                 </p>
               </div>
 
-              {/* Multimodal Attachments Previews */}
-              {selectedDispute.photos && selectedDispute.photos.length > 0 && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <p className="font-bold text-xs uppercase text-slate-400">Attached Photos</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDispute.photos.map((url, idx) => (
-                      <a href={url} target="_blank" rel="noreferrer" key={idx} className="w-16 h-16 rounded-xl border border-slate-300 overflow-hidden shadow-xs shrink-0 cursor-pointer">
-                        <img src={url} className="w-full h-full object-cover" alt="dispute attachment" />
-                      </a>
+              {(selectedDispute.events?.length ?? 0) > 0 && (
+                <div className="mt-2">
+                  <p className="font-bold text-xs uppercase text-slate-400">Case history</p>
+                  <ol className="mt-1.5 flex flex-col gap-1.5">
+                    {selectedDispute.events?.map((e, i) => (
+                      <li key={i} className="text-xs text-slate-600 border-l-2 border-slate-200 pl-2.5">
+                        <span className="font-bold text-slate-800">{STATUS_META[e.to_status].label}</span>
+                        <span className="text-slate-400"> · {formatDate(e.created_at)} · {e.actor}</span>
+                        {e.note && <p className="text-slate-700 mt-0.5 break-words">{e.note}</p>}
+                      </li>
                     ))}
-                  </div>
+                  </ol>
                 </div>
               )}
 
-              {selectedDispute.audio && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <p className="font-bold text-xs uppercase text-slate-400">Attached Voice Statement</p>
-                  <audio src={selectedDispute.audio} controls className="w-full h-10 mt-1" />
-                </div>
-              )}
+              {/* Multimodal Attachments Previews */}
+              <EvidenceGallery
+                photos={selectedDispute.photos ?? []}
+                audio={selectedDispute.audio ?? null}
+                referenceNumber={selectedDispute.fake_reference_number}
+              />
             </div>
 
             {/* Action controls */}
@@ -451,13 +456,13 @@ export function FieldOfficerScreen() {
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="action-comment" className="font-bold text-xs uppercase text-slate-400">
-                  Officer Remarks / Comment
+                  Add remark (shown to the citizen)
                 </label>
                 <textarea
                   id="action-comment"
                   value={actionComment}
                   onChange={(e) => setActionComment(e.target.value)}
-                  placeholder="Type official comments or resolution note..."
+                  placeholder="Explain what happens next, in plain language..."
                   rows={3}
                   className="w-full border-2 border-slate-300 rounded-xl px-3 py-2 bg-white text-sm resize-none"
                 />

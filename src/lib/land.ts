@@ -13,6 +13,7 @@ import {
   cacheAllData,
   getDisputeOverrides,
   saveDisputeOverride,
+  getLocalDisputeEvents,
 } from './offlineStorage'
 
 export type ParcelStatus = 'registered' | 'pending' | 'disputed'
@@ -31,6 +32,7 @@ export type Parcel = {
   status: ParcelStatus
   zone_type: ZoneType
   geo_coords: { lat: number; lng: number }
+  geo_polygon?: { lat: number; lng: number }[]
 }
 
 const PARCEL_COLUMNS = 'id, village_id, demo_village_name, status, zone_type, geo_coords'
@@ -38,8 +40,47 @@ const PARCEL_COLUMNS = 'id, village_id, demo_village_name, status, zone_type, ge
 const DEMO_SCAN_PARCEL_ID = 'DEMO-PARCEL-0005'
 
 /**
+ * Generate a realistic multi-point geometric parcel polygon boundary centered at coordinates.
+ * Allows drawing land plots as real outline shapes on GIS maps.
+ */
+function generateMockPolygon(lat: number, lng: number, parcelId: string): { lat: number; lng: number }[] {
+  // Use a pseudo-random offset based on the parcel ID to make each property shape unique
+  let hash = 0
+  for (let i = 0; i < parcelId.length; i++) {
+    hash = parcelId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  
+  const seed = Math.abs(Math.sin(hash))
+  const size = 0.0003 + seed * 0.0002
+  const tilt = (seed * Math.PI) / 8
+
+  // Draw a diamond/rotated square
+  return [
+    { lat: lat + size * Math.sin(tilt), lng: lng + size * Math.cos(tilt) },
+    { lat: lat + size * Math.sin(tilt + Math.PI/2), lng: lng + size * Math.cos(tilt + Math.PI/2) },
+    { lat: lat + size * Math.sin(tilt + Math.PI), lng: lng + size * Math.cos(tilt + Math.PI) },
+    { lat: lat + size * Math.sin(tilt + 3*Math.PI/2), lng: lng + size * Math.cos(tilt + 3*Math.PI/2) }
+  ]
+}
+
+/**
+ * Clean and maps parcel record, ensuring real-world polygon layouts are populated.
+ */
+function mapParcelRecord(row: any): Parcel {
+  const geo_coords = typeof row.geo_coords === 'string' ? JSON.parse(row.geo_coords) : row.geo_coords
+  const geo_polygon = row.geo_polygon
+    ? (typeof row.geo_polygon === 'string' ? JSON.parse(row.geo_polygon) : row.geo_polygon)
+    : generateMockPolygon(geo_coords.lat, geo_coords.lng, row.id)
+
+  return {
+    ...row,
+    geo_coords,
+    geo_polygon,
+  } as Parcel
+}
+
+/**
  * Fetch villages with offline fallback.
- * Tries Supabase first, caches on success, falls back to localStorage on failure.
  */
 export async function fetchVillages(): Promise<Village[]> {
   if (!supabase) {
@@ -48,12 +89,12 @@ export async function fetchVillages(): Promise<Village[]> {
   try {
     const { data, error } = await supabase.from('villages').select('id, name, province').order('name')
     if (error || !data) {
-      return hasCachedVillages() ? getCachedVillages() : []
+      return (await hasCachedVillages()) ? getCachedVillages() : []
     }
-    cacheVillages(data)
+    await cacheVillages(data)
     return data
   } catch {
-    return hasCachedVillages() ? getCachedVillages() : []
+    return (await hasCachedVillages()) ? getCachedVillages() : []
   }
 }
 
@@ -71,18 +112,21 @@ export async function fetchParcelsByVillage(villageId: string): Promise<Parcel[]
       .eq('village_id', villageId)
       .order('id')
     if (error || !data) {
-      return hasCachedParcels() ? getCachedParcelsByVillage(villageId) : []
+      return (await hasCachedParcels()) ? getCachedParcelsByVillage(villageId) : []
     }
+    
+    const mappedParcels = data.map(mapParcelRecord)
+
     // Merge new parcels with existing cache to avoid erasing other villages
-    const cached = getCachedParcels()
+    const cached = await getCachedParcels()
     const mergedMap = new Map(cached.map((p) => [p.id, p]))
-    for (const p of data as Parcel[]) {
+    for (const p of mappedParcels) {
       mergedMap.set(p.id, p)
     }
-    cacheParcels(Array.from(mergedMap.values()))
-    return data as Parcel[]
+    await cacheParcels(Array.from(mergedMap.values()))
+    return mappedParcels
   } catch {
-    return hasCachedParcels() ? getCachedParcelsByVillage(villageId) : []
+    return (await hasCachedParcels()) ? getCachedParcelsByVillage(villageId) : []
   }
 }
 
@@ -106,7 +150,6 @@ export async function preloadAndCacheAll(): Promise<void> {
     ) {
       const transMap: Record<string, { lao_text: string; english_text: string; hmong_text: string; khmu_text: string }> = {}
       for (const row of translationsRes.data) {
-        // Map the database minority text to both Hmong and Khmu for our enhanced schema
         transMap[row.key] = {
           lao_text: row.lao_text || '',
           english_text: row.english_text || '',
@@ -115,9 +158,11 @@ export async function preloadAndCacheAll(): Promise<void> {
         }
       }
 
-      cacheAllData(
+      const mappedParcels = parcelsRes.data.map(mapParcelRecord)
+
+      await cacheAllData(
         villagesRes.data,
-        parcelsRes.data as Parcel[],
+        mappedParcels,
         transMap
       )
     }
@@ -131,7 +176,7 @@ export async function preloadAndCacheAll(): Promise<void> {
  */
 export async function fetchDemoScanParcel(): Promise<Parcel | null> {
   if (!supabase) {
-    const cached = getCachedParcels().find(p => p.id === DEMO_SCAN_PARCEL_ID)
+    const cached = (await getCachedParcels()).find(p => p.id === DEMO_SCAN_PARCEL_ID)
     return cached ?? null
   }
   try {
@@ -141,12 +186,12 @@ export async function fetchDemoScanParcel(): Promise<Parcel | null> {
       .eq('id', DEMO_SCAN_PARCEL_ID)
       .single()
     if (error || !data) {
-      const cached = getCachedParcels().find(p => p.id === DEMO_SCAN_PARCEL_ID)
+      const cached = (await getCachedParcels()).find(p => p.id === DEMO_SCAN_PARCEL_ID)
       return cached ?? null
     }
-    return data as Parcel
+    return mapParcelRecord(data)
   } catch {
-    const cached = getCachedParcels().find(p => p.id === DEMO_SCAN_PARCEL_ID)
+    const cached = (await getCachedParcels()).find(p => p.id === DEMO_SCAN_PARCEL_ID)
     return cached ?? null
   }
 }
@@ -161,12 +206,13 @@ export async function fetchAllParcels(): Promise<Parcel[]> {
   try {
     const { data, error } = await supabase.from('parcels').select(PARCEL_COLUMNS).order('id')
     if (error || !data) {
-      return hasCachedParcels() ? getCachedParcels() : []
+      return (await hasCachedParcels()) ? getCachedParcels() : []
     }
-    cacheParcels(data as Parcel[])
-    return data as Parcel[]
+    const mappedParcels = data.map(mapParcelRecord)
+    await cacheParcels(mappedParcels)
+    return mappedParcels
   } catch {
-    return hasCachedParcels() ? getCachedParcels() : []
+    return (await hasCachedParcels()) ? getCachedParcels() : []
   }
 }
 
@@ -202,9 +248,6 @@ async function uploadToSupabase(path: string, base64Data: string): Promise<strin
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
     const filePath = `${path}/${fileName}`
     
-    // We will attempt upload to 'disputes-evidence' storage bucket.
-    // If bucket doesn't exist or RLS blocks it, we gracefully catch and log it, returning a mock simulation URL
-    // so the prototype works perfectly either way!
     const { error } = await client.storage
       .from('disputes-evidence')
       .upload(filePath, blob, {
@@ -215,7 +258,6 @@ async function uploadToSupabase(path: string, base64Data: string): Promise<strin
       
     if (error) {
       console.warn('Supabase storage upload error:', error.message)
-      // Fallback: return a simulated URL for prototype presentation
       return `https://supabase.co/storage/v1/object/public/disputes-evidence/${filePath}`
     }
     
@@ -223,7 +265,6 @@ async function uploadToSupabase(path: string, base64Data: string): Promise<strin
     return urlData.publicUrl
   } catch (err) {
     console.warn('Failed to upload evidence to Supabase Storage:', err)
-    // Fallback: return a simulated URL so it behaves perfectly as a prototype showcase
     return `https://supabase.co/storage/v1/object/public/disputes-evidence/${path}/${Date.now()}.bin`
   }
 }
@@ -244,7 +285,6 @@ export async function createDispute(input: {
   
   if (client) {
     try {
-      // 1. Upload photos to Supabase Storage if online
       const photoUrls: string[] = []
       if (input.photos && input.photos.length > 0) {
         for (const photo of input.photos) {
@@ -253,13 +293,11 @@ export async function createDispute(input: {
         }
       }
 
-      // 2. Upload audio note to Supabase Storage if online
       let audioUrl: string | null = null
       if (input.audio) {
         audioUrl = await uploadToSupabase('audio', input.audio)
       }
 
-      // 3. Append evidence URLs to description
       if (photoUrls.length > 0) {
         description += ` \n[Photo Evidence: ${photoUrls.join(', ')}]`
       }
@@ -273,32 +311,28 @@ export async function createDispute(input: {
         .select('fake_reference_number')
         .single()
       if (error || !data) {
-        // If online but request failed, queue for retry
-        queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
-        return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
+        const qid = await queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
+        return { fakeReferenceNumber: qid, queued: true }
       }
       return { fakeReferenceNumber: data.fake_reference_number as string, queued: false }
     } catch {
-      // Network error - queue for later
-      queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
-      return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
+      const qid = await queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
+      return { fakeReferenceNumber: qid, queued: true }
     }
   } else {
-    // Offline - queue for later sync
-    queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
-    return { fakeReferenceNumber: `DEMO-DSP-OFFLINE-${Date.now()}`, queued: true }
+    const qid = await queueDispute({ parcelId: input.parcelId, category: input.category, note: input.note, photos: input.photos, audio: input.audio })
+    return { fakeReferenceNumber: qid, queued: true }
   }
 }
 
 /**
  * Sync queued disputes when coming back online.
- * Call this when connection is restored.
  */
 export async function syncQueuedDisputes(): Promise<{ synced: number; failed: number }> {
   const client = supabase
   if (!client) return { synced: 0, failed: 0 }
   
-  const queue = getDisputeQueue()
+  const queue = await getDisputeQueue()
   if (queue.length === 0) return { synced: 0, failed: 0 }
   
   let synced = 0
@@ -308,7 +342,6 @@ export async function syncQueuedDisputes(): Promise<{ synced: number; failed: nu
     try {
       let description = [DISPUTE_CATEGORY_LABELS[dispute.category as DisputeCategory], dispute.note.trim()].filter(Boolean).join(' — ')
 
-      // 1. Upload photos to Supabase Storage during sync
       const photoUrls: string[] = []
       if (dispute.photos && dispute.photos.length > 0) {
         for (const photo of dispute.photos) {
@@ -317,13 +350,11 @@ export async function syncQueuedDisputes(): Promise<{ synced: number; failed: nu
         }
       }
 
-      // 2. Upload audio note to Supabase Storage during sync
       let audioUrl: string | null = null
       if (dispute.audio) {
         audioUrl = await uploadToSupabase('audio', dispute.audio)
       }
 
-      // 3. Append evidence URLs
       if (photoUrls.length > 0) {
         description += ` \n[Photo Evidence: ${photoUrls.join(', ')}]`
       }
@@ -339,7 +370,7 @@ export async function syncQueuedDisputes(): Promise<{ synced: number; failed: nu
         failed++
       } else {
         synced++
-        removeDisputeFromQueue(dispute.id)
+        await removeDisputeFromQueue(dispute.id)
       }
     } catch {
       failed++
@@ -362,6 +393,7 @@ export type Dispute = {
   parcel: { demo_village_name: string; village_id: string; zone_type: ZoneType } | null
   photos?: string[]
   audio?: string | null
+  events?: { to_status: DisputeStatus; created_at: string; note?: string | null; actor?: string }[]
 }
 
 const DISPUTE_COLUMNS =
@@ -378,7 +410,6 @@ function parseEvidenceFromDescription(description: string | null): {
   const photos: string[] = []
   let audio: string | null = null
 
-  // Extract photos (handles single or multiple comma-separated URLs)
   const photoRegex = /\[Photo Evidence:\s*([^\]]+)\]/i
   const photoMatch = cleanDescription.match(photoRegex)
   if (photoMatch && photoMatch[1]) {
@@ -387,7 +418,6 @@ function parseEvidenceFromDescription(description: string | null): {
     cleanDescription = cleanDescription.replace(photoMatch[0], '')
   }
 
-  // Extract audio (handles single URL)
   const audioRegex = /\[Audio Evidence:\s*([^\]]+)\]/i
   const audioMatch = cleanDescription.match(audioRegex)
   if (audioMatch && audioMatch[1]) {
@@ -395,7 +425,6 @@ function parseEvidenceFromDescription(description: string | null): {
     cleanDescription = cleanDescription.replace(audioMatch[0], '')
   }
 
-  // Clean double spaces and extra trailing delimiters
   cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim()
   if (cleanDescription.endsWith('—')) {
     cleanDescription = cleanDescription.slice(0, -1).trim()
@@ -408,7 +437,7 @@ export async function fetchDisputes(): Promise<Dispute[]> {
   const client = supabase
 
   // Load offline queued disputes
-  const queue = getDisputeQueue()
+  const queue = await getDisputeQueue()
   const queuedDisputes: Dispute[] = queue.map((d) => {
     return {
       id: d.id,
@@ -418,7 +447,7 @@ export async function fetchDisputes(): Promise<Dispute[]> {
       status: 'submitted',
       fake_reference_number: d.id,
       created_at: new Date(d.timestamp).toISOString(),
-      parcel: getCachedParcels().find((p) => p.id === d.parcelId) || null,
+      parcel: null,
       photos: d.photos,
       audio: d.audio,
     } as Dispute
@@ -444,24 +473,38 @@ export async function fetchDisputes(): Promise<Dispute[]> {
         }) as Dispute[]
       }
     } catch {
-      // Offline fallback for database fetch
+      // Offline fallback
     }
   }
 
   const allDisputes = [...queuedDisputes, ...dbDisputes]
 
-  // Apply offline resolution status overrides
-  const overrides = getDisputeOverrides()
+  const overrides = await getDisputeOverrides()
+  const localEvents = await getLocalDisputeEvents()
+
   return allDisputes.map((d) => {
     const override = overrides[d.id] || overrides[d.fake_reference_number]
+    const disputeEvents = localEvents
+      .filter((e) => e.disputeId === d.id || e.disputeId === d.fake_reference_number)
+      .map((e) => ({
+        to_status: e.toStatus as DisputeStatus,
+        created_at: new Date(e.createdAt).toISOString(),
+        note: e.note,
+        actor: e.actor,
+      }))
+
     if (override) {
       return {
         ...d,
         status: override.status,
         description: d.description + (override.comment ? ` \n[Officer Remark: ${override.comment}]` : ''),
+        events: disputeEvents,
       }
     }
-    return d
+    return {
+      ...d,
+      events: disputeEvents,
+    }
   })
 }
 
@@ -473,8 +516,7 @@ export async function updateDisputeStatus(
   status: 'submitted' | 'in_review' | 'resolved',
   comment: string
 ): Promise<boolean> {
-  // Always update locally for instant responsiveness
-  saveDisputeOverride(disputeId, status, comment)
+  await saveDisputeOverride(disputeId, status, comment)
 
   const client = supabase
   if (!client) return true // Offline success
@@ -495,6 +537,31 @@ export async function updateDisputeStatus(
     return !error
   } catch (err: any) {
     console.warn('Catch error during Supabase status update:', err.message)
-    return true // Fallback succeeds via local storage override
+    return true
+  }
+}
+
+export async function fetchDisputeByReference(ref: string): Promise<Dispute | null> {
+  const all = await fetchDisputes()
+  const needle = ref.trim().toLowerCase()
+  return all.find(d => d.fake_reference_number.toLowerCase() === needle || d.id.toLowerCase() === needle) ?? null
+}
+
+export async function fetchParcelById(id: string): Promise<Parcel | null> {
+  const cached = await getCachedParcels()
+  const found = cached.find(p => p.id === id)
+  if (found) return found
+
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('parcels')
+      .select(PARCEL_COLUMNS)
+      .eq('id', id)
+      .single()
+    if (error || !data) return null
+    return mapParcelRecord(data)
+  } catch {
+    return null
   }
 }

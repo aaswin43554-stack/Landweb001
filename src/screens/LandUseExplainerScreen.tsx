@@ -17,7 +17,7 @@ const VIEW_W = 320
 const VIEW_H = 400
 const PAD = 56
 
-type PlacedParcel = { parcel: Parcel; x: number; y: number }
+type PlacedParcel = { parcel: Parcel; x: number; y: number; polygonPoints?: string }
 type VillageCluster = { villageId: string; villageName: string; x: number; y: number; parcels: PlacedParcel[] }
 
 function clusterByVillage(parcels: Parcel[]): VillageCluster[] {
@@ -50,14 +50,19 @@ function clusterByVillage(parcels: Parcel[]): VillageCluster[] {
     const avgLat = villageParcels.reduce((sum, p) => sum + p.geo_coords.lat, 0) / villageParcels.length
     const avgLng = villageParcels.reduce((sum, p) => sum + p.geo_coords.lng, 0) / villageParcels.length
     const center = project(avgLat, avgLng)
-    const radius = villageParcels.length <= 1 ? 0 : villageParcels.length <= 4 ? 26 : 38
 
-    const placed = villageParcels.map((parcel, i) => {
-      const angle = (2 * Math.PI * i) / villageParcels.length - Math.PI / 2
+    const placed = villageParcels.map((parcel) => {
+      const center = project(parcel.geo_coords.lat, parcel.geo_coords.lng)
+      const points = (parcel.geo_polygon || []).map((coord) => {
+        const pt = project(coord.lat, coord.lng)
+        return `${pt.x},${pt.y}`
+      }).join(' ')
+
       return {
         parcel,
-        x: center.x + radius * Math.cos(angle),
-        y: center.y + radius * Math.sin(angle),
+        x: center.x,
+        y: center.y,
+        polygonPoints: points,
       }
     })
 
@@ -197,7 +202,7 @@ export function LandUseExplainerScreen() {
                 >
                   {cluster.villageName}
                 </text>
-                {cluster.parcels.map(({ parcel, x, y }) => {
+                {cluster.parcels.map(({ parcel, x, y, polygonPoints }) => {
                   const style = ZONE_STYLES[parcel.zone_type]
                   const isSelected = selected?.id === parcel.id
                   return (
@@ -212,16 +217,28 @@ export function LandUseExplainerScreen() {
                         if (e.key === 'Enter' || e.key === ' ') setSelected(parcel)
                       }}
                     >
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r={isSelected ? 19 : 16}
-                        fill={style.fill}
-                        stroke={style.ring}
-                        strokeWidth={isSelected ? 3 : 2}
-                      />
-                      <foreignObject x={x - 10} y={y - 10} width="20" height="20" className="pointer-events-none">
-                        <style.Icon className="w-5 h-5" style={{ color: style.text }} />
+                      {polygonPoints ? (
+                        <polygon
+                          points={polygonPoints}
+                          fill={style.fill}
+                          stroke={isSelected ? '#1e293b' : style.ring}
+                          strokeWidth={isSelected ? 3.5 : 2}
+                          strokeDasharray={parcel.status === 'disputed' ? 'none' : parcel.status === 'pending' ? '4 2' : 'none'}
+                          opacity={isSelected ? 1.0 : 0.85}
+                          className="transition-all hover:opacity-100"
+                        />
+                      ) : (
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={isSelected ? 19 : 16}
+                          fill={style.fill}
+                          stroke={style.ring}
+                          strokeWidth={isSelected ? 3 : 2}
+                        />
+                      )}
+                      <foreignObject x={x - 9} y={y - 9} width="18" height="18" className="pointer-events-none">
+                        <style.Icon className="w-4.5 h-4.5" style={{ color: style.text }} />
                       </foreignObject>
                     </g>
                   )

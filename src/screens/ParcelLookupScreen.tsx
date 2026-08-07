@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { AlertIcon, CheckCircleIcon, ClockIcon, QrIcon, SearchIcon } from '../components/icons'
 import { PlayExplanationButton } from '../components/PlayExplanationButton'
-import { fetchDemoScanParcel, fetchParcelsByVillage, fetchVillages, type Parcel, type Village } from '../lib/land'
+import { QrScanner } from '../components/QrScanner'
+import { QrCode } from '../components/QrCode'
+import { fetchParcelById, fetchParcelsByVillage, fetchVillages, type Parcel, type Village } from '../lib/land'
 import { useTranslations } from '../lib/translations'
 
 type LookupResult = { kind: 'village'; villageName: string; parcels: Parcel[] } | { kind: 'scan'; parcel: Parcel }
@@ -15,6 +17,7 @@ const STATUS_STYLES = {
 function ParcelCard({ parcel }: { parcel: Parcel }) {
   const { t } = useTranslations()
   const { Icon, bg, border, text } = STATUS_STYLES[parcel.status]
+  const [showCode, setShowCode] = useState(false)
 
   return (
     <div className={`rounded-2xl border-2 ${border} ${bg} p-4 flex flex-col gap-3`}>
@@ -27,8 +30,32 @@ function ParcelCard({ parcel }: { parcel: Parcel }) {
         </div>
       </div>
       <PlayExplanationButton text={`${t(`status.${parcel.status}`)}. ${t(`zone.${parcel.zone_type}`)}. ID: ${parcel.id}`} />
+
+      <button
+        type="button"
+        onClick={() => setShowCode((s) => !s)}
+        className="text-xs font-semibold text-gray-600 underline self-start"
+      >
+        {showCode ? t('lookup.hide_code') : t('lookup.show_code')}
+      </button>
+
+      {showCode && (
+        <div className="flex flex-col items-center gap-2 bg-white rounded-xl border border-gray-200 p-3">
+          <QrCode value={parcel.id} size={132} className="w-33 h-33" />
+          <p className="text-[11px] text-gray-500 text-center">{t('lookup.show_code_hint')}</p>
+        </div>
+      )}
     </div>
   )
+}
+
+/**
+ * A scanned code may hold a bare parcel ID, a URL containing one, or a JSON
+ * blob. Pull the DEMO-PARCEL-#### out of whatever form it arrives in.
+ */
+function extractParcelId(raw: string): string {
+  const match = raw.match(/DEMO-PARCEL-\d+/i)
+  return match ? match[0].toUpperCase() : raw.trim()
 }
 
 export function ParcelLookupScreen() {
@@ -37,6 +64,8 @@ export function ParcelLookupScreen() {
   const [selectedVillageId, setSelectedVillageId] = useState('')
   const [result, setResult] = useState<LookupResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchVillages().then(setVillages)
@@ -44,6 +73,7 @@ export function ParcelLookupScreen() {
 
   async function handleVillageChange(villageId: string) {
     setSelectedVillageId(villageId)
+    setScanError(null)
     if (!villageId) {
       setResult(null)
       return
@@ -55,11 +85,19 @@ export function ParcelLookupScreen() {
     setIsLoading(false)
   }
 
-  async function handleScan() {
+  async function handleScanResult(value: string) {
+    setShowScanner(false)
     setSelectedVillageId('')
+    setScanError(null)
     setIsLoading(true)
-    const parcel = await fetchDemoScanParcel()
-    setResult(parcel ? { kind: 'scan', parcel } : null)
+
+    const parcel = await fetchParcelById(extractParcelId(value))
+    if (parcel) {
+      setResult({ kind: 'scan', parcel })
+    } else {
+      setResult(null)
+      setScanError(t('lookup.scan_not_found'))
+    }
     setIsLoading(false)
   }
 
@@ -98,7 +136,7 @@ export function ParcelLookupScreen() {
       <div className="flex flex-col gap-1">
         <button
           type="button"
-          onClick={handleScan}
+          onClick={() => setShowScanner(true)}
           className="w-full flex items-center justify-center gap-3 rounded-xl bg-emerald-700 text-white py-4 text-lg font-bold active:bg-emerald-800"
         >
           <QrIcon className="w-7 h-7" />
@@ -107,8 +145,23 @@ export function ParcelLookupScreen() {
         <p className="text-xs text-gray-400 text-center">{t('lookup.scan_hint')}</p>
       </div>
 
+      {showScanner && (
+        <QrScanner
+          title={t('scan.button')}
+          hint={t('lookup.scan_hint')}
+          onResult={handleScanResult}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
       <div className="flex flex-col gap-3">
         {isLoading && <p className="text-center text-gray-400">…</p>}
+
+        {!isLoading && scanError && (
+          <p className="text-center text-red-700 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-3 text-sm font-semibold">
+            {scanError}
+          </p>
+        )}
 
         {!isLoading && result?.kind === 'village' && result.parcels.length === 0 && (
           <p className="text-center text-gray-500">{t('lookup.no_results')}</p>

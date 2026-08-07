@@ -386,6 +386,132 @@ const FALLBACK_TRANSLATIONS: Record<string, TranslationEntry> = {
     hmong_text: 'Mloog tau sai sai no',
     khmu_text: 'Coming soon',
   },
+  'dispute.keep_reference': {
+    lao_text: 'ເກັບເລກນີ້ໄວ້. ໃຊ້ມັນຢູ່ໜ້າ "ຕິດຕາມເລື່ອງ" ເພື່ອເບິ່ງຄວາມຄືບໜ້າ.',
+    english_text: 'Keep this number. Use it on the “My Case” tab to see what happens next.',
+    hmong_text: 'Khaws tus lej no cia.',
+    khmu_text: 'Keep this number',
+  },
+  'officer.status.submitted': {
+    lao_text: 'ຍື່ນສົ່ງແລ້ວ',
+    english_text: 'Submitted',
+    hmong_text: 'Xa Mus Lawm',
+    khmu_text: 'Submitted',
+  },
+  'officer.status.in_review': {
+    lao_text: 'ກຳລັງກວດສອບ',
+    english_text: 'Being looked at',
+    hmong_text: 'Tab tom saib',
+    khmu_text: 'Being looked at',
+  },
+  'officer.status.resolved': {
+    lao_text: 'ແກ້ໄຂແລ້ວ',
+    english_text: 'Resolved',
+    hmong_text: 'Daws tau lawm',
+    khmu_text: 'Resolved',
+  },
+  'nav.case_status': {
+    lao_text: 'ຕິດຕາມເລື່ອງ',
+    english_text: 'My Case',
+    hmong_text: 'Kuv Rooj Plaub',
+    khmu_text: 'My Case',
+  },
+  'case.title': {
+    lao_text: 'ຕິດຕາມເລື່ອງຂອງທ່ານ',
+    english_text: 'Check your case',
+    hmong_text: 'Xyuas koj rooj plaub',
+    khmu_text: 'Check your case',
+  },
+  'case.intro': {
+    lao_text: 'ພິມເລກອ້າງອີງທີ່ທ່ານໄດ້ຮັບຕອນຍື່ນສົ່ງ.',
+    english_text: 'Type the reference number you were given when you submitted.',
+    hmong_text: 'Sau tus lej koj tau txais thaum xa.',
+    khmu_text: 'Type your reference number',
+  },
+  'case.input_label': {
+    lao_text: 'ເລກອ້າງອີງ',
+    english_text: 'Reference number',
+    hmong_text: 'Tus lej',
+    khmu_text: 'Reference number',
+  },
+  'case.search': {
+    lao_text: 'ຄົ້ນຫາ',
+    english_text: 'Find my case',
+    hmong_text: 'Nrhiav',
+    khmu_text: 'Find my case',
+  },
+  'case.scan': {
+    lao_text: 'ສະແກນລະຫັດ',
+    english_text: 'Scan code',
+    hmong_text: 'Luam tus lej',
+    khmu_text: 'Scan code',
+  },
+  'case.not_found': {
+    lao_text: 'ບໍ່ພົບເລື່ອງນີ້. ກະລຸນາກວດເລກອ້າງອີງອີກຄັ້ງ.',
+    english_text: 'No case found with that number. Please check it and try again.',
+    hmong_text: 'Tsis pom. Sim dua.',
+    khmu_text: 'Case not found',
+  },
+  'case.timeline_title': {
+    lao_text: 'ຄວາມຄືບໜ້າ',
+    english_text: 'Progress',
+    hmong_text: 'Kev nce qib',
+    khmu_text: 'Progress',
+  },
+  'case.your_report': {
+    lao_text: 'ສິ່ງທີ່ທ່ານແຈ້ງ',
+    english_text: 'What you reported',
+    hmong_text: 'Koj qhia dab tsi',
+    khmu_text: 'What you reported',
+  },
+  'case.your_evidence': {
+    lao_text: 'ຫຼັກຖານຂອງທ່ານ',
+    english_text: 'Your evidence',
+    hmong_text: 'Koj cov pov thawj',
+    khmu_text: 'Your evidence',
+  },
+  'case.officer_remark': {
+    lao_text: 'ຄຳຕອບຈາກເຈົ້າໜ້າທີ່',
+    english_text: 'Officer reply',
+    hmong_text: 'Tub ceev xwm teb',
+    khmu_text: 'Officer reply',
+  },
+  'case.awaiting': {
+    lao_text: 'ຍັງບໍ່ທັນມີການປ່ຽນແປງ. ເລື່ອງຂອງທ່ານກຳລັງລໍຖ້າກວດສອບ.',
+    english_text: 'No update yet. Your case is waiting to be reviewed.',
+    hmong_text: 'Tseem tsis tau muaj xov xwm.',
+    khmu_text: 'No update yet',
+  },
+  'case.offline_notice': {
+    lao_text: 'ເລື່ອງນີ້ຍັງເກັບຢູ່ໃນເຄື່ອງນີ້ ແລະ ຈະສົ່ງເມື່ອມີສັນຍານ.',
+    english_text: 'This case is still stored on this phone and will be sent when you have a connection.',
+    hmong_text: 'Tseem nyob hauv lub xov tooj no.',
+    khmu_text: 'Saved on this phone',
+  },
+  'lookup.scan_not_found': {
+    lao_text: 'ບໍ່ພົບທີ່ດິນສຳລັບລະຫັດນີ້.',
+    english_text: 'No land parcel matches that code.',
+    hmong_text: 'Tsis pom thaj av rau tus lej no.',
+    khmu_text: 'No parcel for that code',
+  },
+  'lookup.show_code': {
+    lao_text: 'ສະແດງລະຫັດ QR ຂອງທີ່ດິນນີ້',
+    english_text: 'Show this parcel’s QR code',
+    hmong_text: 'Qhia tus lej QR',
+    khmu_text: 'Show QR code',
+  },
+  'lookup.hide_code': {
+    lao_text: 'ເຊື່ອງລະຫັດ QR',
+    english_text: 'Hide QR code',
+    hmong_text: 'Zais tus lej QR',
+    khmu_text: 'Hide QR code',
+  },
+  'lookup.show_code_hint': {
+    lao_text: 'ຕົວຢ່າງ: ລະຫັດແບບນີ້ອາດຕິດຢູ່ໜ້າດິນ ຫຼື ໃນເອກະສານ.',
+    english_text: 'Example only: a code like this could be posted on a notice board or printed on a document.',
+    hmong_text: 'Piv txwv xwb.',
+    khmu_text: 'Example only',
+  },
 }
 
 type TranslationsContextValue = {
@@ -399,10 +525,17 @@ const TranslationsContext = createContext<TranslationsContextValue | null>(null)
 
 export function TranslationsProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('lo')
-  const [rows, setRows] = useState<Record<string, TranslationEntry>>(() => {
-    const cached = getCachedTranslations()
-    return Object.keys(cached).length > 0 ? (cached as Record<string, TranslationEntry>) : FALLBACK_TRANSLATIONS
-  })
+  const [rows, setRows] = useState<Record<string, TranslationEntry>>(FALLBACK_TRANSLATIONS)
+
+  useEffect(() => {
+    async function loadCached() {
+      const cached = await getCachedTranslations()
+      if (Object.keys(cached).length > 0) {
+        setRows((prev) => ({ ...prev, ...cached }))
+      }
+    }
+    loadCached()
+  }, [])
 
   useEffect(() => {
     if (!supabase) return
