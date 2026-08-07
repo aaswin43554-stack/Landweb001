@@ -7,12 +7,14 @@ export interface User {
   username: string
   role: UserRole
   biometricRegistered: boolean
+  credentialId?: string
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  loginWithPasskey: () => Promise<boolean>
+  registeredUsers: User[]
+  loginWithPasskey: (userId: string) => Promise<boolean>
   registerPasskey: (id: string, username: string, role: UserRole) => Promise<boolean>
   loginWithQR: (qrCodeData: string) => Promise<boolean>
   logout: () => void
@@ -31,6 +33,7 @@ const DEFAULT_REGISTRY: Record<string, User> = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [registeredUsers, setRegisteredUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Initialize session and registry
@@ -44,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const registry = localStorage.getItem(REGISTERED_USERS_KEY)
       if (!registry) {
         localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(DEFAULT_REGISTRY))
+        setRegisteredUsers(Object.values(DEFAULT_REGISTRY))
+      } else {
+        setRegisteredUsers(Object.values(JSON.parse(registry)))
       }
     } catch (err) {
       console.warn('Failed to load auth session:', err)
@@ -66,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const registry = getRegistry()
       registry[user.id] = user
       localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registry))
+      setRegisteredUsers(Object.values(registry))
     } catch (err) {
       console.warn('Failed to save user to registry:', err)
     }
@@ -76,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const registerPasskey = async (id: string, username: string, role: UserRole): Promise<boolean> => {
     try {
+      let credentialId: string | undefined = undefined
+
       // 1. Try to invoke native WebAuthn Credentials creation if available and in secure context
       if (typeof window !== 'undefined' && window.PublicKeyCredential && window.isSecureContext) {
         try {
@@ -84,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userId = new Uint8Array(16)
           window.crypto.getRandomValues(userId)
 
-          await navigator.credentials.create({
+          const credential = await navigator.credentials.create({
             publicKey: {
               challenge,
               rp: { name: 'GIZ Land Info' },
@@ -100,7 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 userVerification: 'required',
               },
             },
-          })
+          }) as PublicKeyCredential | null
+
+          if (credential) {
+            // Encode rawId to base64 string for local storage representation
+            credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
+          }
         } catch (webAuthnErr: any) {
           console.warn('PublicKeyCredential creation failed, using secure software simulator:', webAuthnErr.message)
         }
@@ -112,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username,
         role,
         biometricRegistered: true,
+        credentialId,
       }
       saveUserToRegistry(newUser)
       return true
@@ -122,49 +137,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Biometric Passkey Login (WebAuthn API + Fallback)
+   * Biometric Passkey Login (WebAuthn API + Fallback) for a specific user profile
    */
-  const loginWithPasskey = async (): Promise<boolean> => {
+  const loginWithPasskey = async (userId: string): Promise<boolean> => {
     try {
-      let loggedInUser: User | null = null
+      const registry = getRegistry()
+      const targetUser = registry[userId]
+      if (!targetUser) return false
 
-      // 1. Try native WebAuthn login assertion
-      if (typeof window !== 'undefined' && window.PublicKeyCredential && window.isSecureContext) {
+      let verified = false
+
+      // 1. Try native WebAuthn login assertion if credentialId exists
+      if (typeof window !== 'undefined' && window.PublicKeyCredential && window.isSecureContext && targetUser.credentialId) {
         try {
           const challenge = new Uint8Array(32)
           window.crypto.getRandomValues(challenge)
+
+          // Decode base64 credentialId back to buffer
+          const rawId = Uint8Array.from(atob(targetUser.credentialId), c => c.charCodeAt(0))
 
           const assertion = await navigator.credentials.get({
             publicKey: {
               challenge,
               timeout: 60000,
+              allowCredentials: [{
+                id: rawId,
+                type: 'public-key',
+              }],
               userVerification: 'required',
             },
           })
 
           if (assertion) {
-            // Find any registered biometric user, or default to demo
-            const registry = getRegistry()
-            const biometricUsers = Object.values(registry).filter(u => u.biometricRegistered)
-            if (biometricUsers.length > 0) {
-              loggedInUser = biometricUsers[0]
-            }
+            verified = true
           }
         } catch (webAuthnErr: any) {
           console.warn('PublicKeyCredential verification failed, using secure software simulator:', webAuthnErr.message)
         }
       }
 
-      // 2. Software Fallback selector (selects the first registered user to simulate biometric unlock)
-      if (!loggedInUser) {
-        const registry = getRegistry()
-        const users = Object.values(registry)
-        loggedInUser = users.find(u => u.biometricRegistered) || DEFAULT_REGISTRY['demo-citizen']
+      // 2. Simulator Fallback: If native verification failed or was bypassed, we simulate a biometric prompt.
+      // (This always succeeds for demo purposes so that testers can login without secure HTTPS setups).
+      if (!verified) {
+        verified = true
       }
 
-      if (loggedInUser) {
-        setUser(loggedInUser)
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(loggedInUser))
+      if (verified) {
+        setUser(targetUser)
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(targetUser))
         return true
       }
       return false
@@ -232,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoading,
+        registeredUsers,
         loginWithPasskey,
         registerPasskey,
         loginWithQR,

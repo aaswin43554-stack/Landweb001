@@ -4,9 +4,10 @@ import { QrScanner } from '../components/QrScanner'
 import { QrIcon } from '../components/icons'
 
 export function LoginScreen() {
-  const { loginWithPasskey, registerPasskey, loginWithQR } = useAuth()
+  const { loginWithPasskey, registerPasskey, loginWithQR, registeredUsers } = useAuth()
   
   const [tab, setTab] = useState<'passkey' | 'qr'>('passkey')
+  const [selectedUserId, setSelectedUserId] = useState('demo-citizen')
   const [showScanner, setShowScanner] = useState(false)
   const [qrCodeInput, setQrCodeInput] = useState('')
   const [scanError, setScanError] = useState(false)
@@ -19,8 +20,9 @@ export function LoginScreen() {
   const [regRole, setRegRole] = useState<UserRole>('citizen')
 
   const handlePasskeyLogin = async () => {
+    if (!selectedUserId) return
     setIsProcessing(true)
-    const success = await loginWithPasskey()
+    const success = await loginWithPasskey(selectedUserId)
     setIsProcessing(false)
     if (!success) {
       alert('Authentication failed or canceled.')
@@ -38,6 +40,7 @@ export function LoginScreen() {
     if (success) {
       alert('Passkey registered successfully! You can now log in.')
       setShowRegister(false)
+      setSelectedUserId(regId.trim())
       setRegId('')
       setRegName('')
     } else {
@@ -97,8 +100,29 @@ export function LoginScreen() {
         {tab === 'passkey' && !showRegister && (
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-600">
-              Sign in securely using your device's fingerprint sensor or face recognition.
+              Select your profile and scan biometrics to log in.
             </p>
+
+            {/* Profile Dropdown Selector */}
+            <div className="w-full flex flex-col gap-1.5 text-left bg-gray-50 border border-gray-200 rounded-xl p-3">
+              <label htmlFor="biometric-user-select" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Select Biometric Account
+              </label>
+              <select
+                id="biometric-user-select"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs bg-white focus:outline-none font-semibold text-slate-700"
+              >
+                {registeredUsers
+                  .filter((u) => u.biometricRegistered)
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.username} ({u.role === 'field-officer' ? 'Officer' : 'Citizen'})
+                    </option>
+                  ))}
+              </select>
+            </div>
             
             <button
               type="button"
