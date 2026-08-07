@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize session and registry
+  // Initialize session and registry (merging defaults to support cache migrations)
   useEffect(() => {
     try {
       const session = localStorage.getItem(LOCAL_STORAGE_KEY)
@@ -45,13 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(JSON.parse(session))
       }
       
-      const registry = localStorage.getItem(REGISTERED_USERS_KEY)
-      if (!registry) {
-        localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(DEFAULT_REGISTRY))
-        setRegisteredUsers(Object.values(DEFAULT_REGISTRY))
-      } else {
-        setRegisteredUsers(Object.values(JSON.parse(registry)))
+      const registryRaw = localStorage.getItem(REGISTERED_USERS_KEY)
+      let registry: Record<string, User> = { ...DEFAULT_REGISTRY }
+
+      if (registryRaw) {
+        try {
+          const parsed = JSON.parse(registryRaw)
+          registry = {
+            ...DEFAULT_REGISTRY,
+            ...parsed,
+          }
+          // Force defaults to have correct structure and properties
+          registry['demo-citizen'] = { ...DEFAULT_REGISTRY['demo-citizen'], ...registry['demo-citizen'] }
+          registry['demo-officer'] = { ...DEFAULT_REGISTRY['demo-officer'], ...registry['demo-officer'] }
+        } catch {
+          // Fallback to default registry if parsing crashes
+        }
       }
+
+      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registry))
+      setRegisteredUsers(Object.values(registry))
     } catch (err) {
       console.warn('Failed to load auth session:', err)
     } finally {

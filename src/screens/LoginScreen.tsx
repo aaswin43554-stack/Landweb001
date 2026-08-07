@@ -38,6 +38,14 @@ export function LoginScreen() {
     }
   }, [])
 
+  // Synchronize default selected user once registry loads
+  useEffect(() => {
+    const biometricUsers = registeredUsers.filter((u) => u.biometricRegistered)
+    if (biometricUsers.length > 0 && !biometricUsers.some((u) => u.id === selectedUserId)) {
+      setSelectedUserId(biometricUsers[0].id)
+    }
+  }, [registeredUsers, selectedUserId])
+
   const handlePasskeyLogin = async () => {
     if (!selectedUserId) return
     
