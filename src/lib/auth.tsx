@@ -8,14 +8,15 @@ export interface User {
   role: UserRole
   biometricRegistered: boolean
   credentialId?: string
+  backupPin: string
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
   registeredUsers: User[]
-  loginWithPasskey: (userId: string) => Promise<boolean>
-  registerPasskey: (id: string, username: string, role: UserRole) => Promise<boolean>
+  loginWithPasskey: (userId: string, enteredPin?: string) => Promise<boolean>
+  registerPasskey: (id: string, username: string, role: UserRole, backupPin: string) => Promise<boolean>
   loginWithQR: (qrCodeData: string) => Promise<boolean>
   logout: () => void
 }
@@ -25,10 +26,10 @@ const AuthContext = createContext<AuthContextType | null>(null)
 const LOCAL_STORAGE_KEY = 'giz-auth-session'
 const REGISTERED_USERS_KEY = 'giz-registered-users'
 
-// Default mock registry for offline credentials
+// Default mock registry with standard backup PINs (default: 1234)
 const DEFAULT_REGISTRY: Record<string, User> = {
-  'demo-citizen': { id: 'demo-citizen', username: 'Demo Citizen', role: 'citizen', biometricRegistered: true },
-  'demo-officer': { id: 'demo-officer', username: 'Officer Sisavath', role: 'field-officer', biometricRegistered: true },
+  'demo-citizen': { id: 'demo-citizen', username: 'Demo Citizen', role: 'citizen', biometricRegistered: true, backupPin: '1234' },
+  'demo-officer': { id: 'demo-officer', username: 'Officer Sisavath', role: 'field-officer', biometricRegistered: true, backupPin: '1234' },
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,9 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Biometric Passkey Registration (WebAuthn API + Fallback)
+   * Biometric Passkey Registration with Backup PIN Setup
    */
-  const registerPasskey = async (id: string, username: string, role: UserRole): Promise<boolean> => {
+  const registerPasskey = async (id: string, username: string, role: UserRole, backupPin: string): Promise<boolean> => {
     try {
       let credentialId: string | undefined = undefined
 
@@ -120,13 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Register user credentials locally (works offline & in any environment)
+      // 2. Register user credentials locally
       const newUser: User = {
         id,
         username,
         role,
         biometricRegistered: true,
         credentialId,
+        backupPin,
       }
       saveUserToRegistry(newUser)
       return true
@@ -137,9 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Biometric Passkey Login (WebAuthn API + Fallback) for a specific user profile
+   * Biometric Passkey Login with Backup PIN Fallback validation
    */
-  const loginWithPasskey = async (userId: string): Promise<boolean> => {
+  const loginWithPasskey = async (userId: string, enteredPin?: string): Promise<boolean> => {
     try {
       const registry = getRegistry()
       const targetUser = registry[userId]
@@ -172,14 +174,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             verified = true
           }
         } catch (webAuthnErr: any) {
-          console.warn('PublicKeyCredential verification failed, using secure software simulator:', webAuthnErr.message)
+          console.warn('PublicKeyCredential verification failed, using backup verification:', webAuthnErr.message)
         }
       }
 
-      // 2. Simulator Fallback: If native verification failed or was bypassed, we simulate a biometric prompt.
-      // (This always succeeds for demo purposes so that testers can login without secure HTTPS setups).
-      if (!verified) {
-        verified = true
+      // 2. Backup PIN verification check (for desktop/laptops lacking biometric sensors)
+      if (!verified && enteredPin) {
+        if (targetUser.backupPin === enteredPin) {
+          verified = true
+        }
       }
 
       if (verified) {
@@ -229,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: cardName,
           role: cardRole,
           biometricRegistered: false,
+          backupPin: '1234',
         }
         saveUserToRegistry(matchedUser)
       }
