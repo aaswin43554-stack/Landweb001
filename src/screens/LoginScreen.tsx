@@ -12,6 +12,8 @@ export function LoginScreen() {
   const [qrCodeInput, setQrCodeInput] = useState('')
   const [scanError, setScanError] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanSuccess, setScanSuccess] = useState(false)
 
   // Registration states (for demo/on-boarding setup)
   const [showRegister, setShowRegister] = useState(false)
@@ -21,12 +23,21 @@ export function LoginScreen() {
 
   const handlePasskeyLogin = async () => {
     if (!selectedUserId) return
-    setIsProcessing(true)
+    setIsScanning(true)
+    setScanSuccess(false)
+    
+    // Premium tactile delay simulating biometric check latency
+    await new Promise((resolve) => setTimeout(resolve, 1600))
+    
     const success = await loginWithPasskey(selectedUserId)
-    setIsProcessing(false)
-    if (!success) {
-      alert('Authentication failed or canceled.')
+    
+    if (success) {
+      setScanSuccess(true)
+      await new Promise((resolve) => setTimeout(resolve, 600))
+    } else {
+      alert('Authentication failed.')
     }
+    setIsScanning(false)
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -275,6 +286,52 @@ export function LoginScreen() {
           </div>
         )}
       </div>
+
+      {/* Tactile Fingerprint Scanner Overlay */}
+      {isScanning && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <style>{`
+            @keyframes infinite-loading {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(200%); }
+            }
+            .animate-infinite-loading {
+              animation: infinite-loading 1.2s infinite linear;
+            }
+          `}</style>
+          <div className="bg-white rounded-3xl p-8 max-w-[280px] w-full flex flex-col items-center gap-6 shadow-2xl border-2 border-emerald-500 animate-in fade-in zoom-in duration-200">
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${
+              scanSuccess ? 'bg-emerald-600 text-white' : 'bg-emerald-50 border-4 border-emerald-650 animate-pulse'
+            }`}>
+              {scanSuccess ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-12 h-12">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-12 h-12 text-emerald-700">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+              )}
+            </div>
+            
+            <div className="text-center">
+              <h3 className="font-bold text-lg text-slate-800">
+                {scanSuccess ? 'Verification Successful' : 'Scanning Fingerprint'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                {scanSuccess ? 'Access granted. Welcome back!' : 'Place your finger on your device\'s fingerprint sensor.'}
+              </p>
+            </div>
+            
+            {!scanSuccess && (
+              <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden relative">
+                <div className="h-full bg-emerald-600 animate-infinite-loading rounded-full w-1/2 absolute top-0 left-0"></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
