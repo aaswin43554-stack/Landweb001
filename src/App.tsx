@@ -56,13 +56,13 @@ function AppContent() {
 
   const handleSelectMode = (mode: 'citizen' | 'field-officer' | 'admin') => {
     if (mode === 'admin') {
-      loginDirectly('demo-admin')
+      loginDirectly('admin')
       setView({ mode: 'admin' })
     } else if (mode === 'field-officer') {
-      loginDirectly('demo-officer')
+      loginDirectly('field-officer')
       setView({ mode: 'field-officer' })
     } else {
-      loginDirectly('demo-citizen')
+      loginDirectly('citizen')
       setView({ mode: 'citizen', screen: 'parcel-lookup' })
     }
   }

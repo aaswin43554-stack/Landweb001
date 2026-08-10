@@ -77,8 +77,8 @@ export function Header({
   }, [])
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 px-4 py-3 relative z-40">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+    <header className="w-full bg-white border-b border-gray-200 px-3 py-2.5 sm:px-4 sm:py-3 relative z-40 overflow-hidden">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         
         {/* Title Block */}
         <div className="flex items-center gap-2 min-w-0">
@@ -89,7 +89,7 @@ export function Header({
         </div>
 
         {/* Controls Block (Responsive Flex-Wrap) */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 justify-start sm:justify-end">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full justify-start sm:justify-end">
           
           {/* User Profile / Logout Pill */}
           {user && (

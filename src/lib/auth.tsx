@@ -262,9 +262,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loginDirectly = (userId: string) => {
+  const loginDirectly = (roleOrUserId: string) => {
     const registry = getRegistry()
-    const targetUser = registry[userId]
+    let targetUser: User | undefined = registry[roleOrUserId]
+    if (!targetUser) {
+      targetUser = Object.values(registry).find(u => u.role === roleOrUserId || u.id === roleOrUserId)
+    }
+    if (!targetUser) {
+      if (roleOrUserId === 'admin' || roleOrUserId === 'demo-admin') {
+        targetUser = { id: 'demo-admin', username: 'Village Chief (Admin)', role: 'admin', biometricRegistered: true, backupPin: '1234' }
+      } else if (roleOrUserId === 'field-officer' || roleOrUserId === 'demo-officer') {
+        targetUser = { id: 'demo-officer', username: 'Officer Sisavath', role: 'field-officer', biometricRegistered: true, backupPin: '1234' }
+      } else {
+        targetUser = { id: 'demo-citizen', username: 'Demo Citizen', role: 'citizen', biometricRegistered: true, backupPin: '1234' }
+      }
+    }
     if (targetUser) {
       setUser(targetUser)
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(targetUser))
