@@ -17,7 +17,7 @@ const VIEW_W = 320
 const VIEW_H = 340
 const PAD = 56
 
-type PlacedParcel = { parcel: Parcel; x: number; y: number }
+type PlacedParcel = { parcel: Parcel; x: number; y: number; polygonPoints?: string }
 type VillageCluster = { villageId: string; villageName: string; x: number; y: number; parcels: PlacedParcel[] }
 
 function projectCoords(lat: number, lng: number, _minLat: number, maxLat: number, minLng: number, _maxLng: number, latSpan: number, lngSpan: number) {
@@ -71,15 +71,25 @@ function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageClust
   for (const [villageId, villageParcels] of byVillage) {
     const avgLat = villageParcels.reduce((sum, p) => sum + p.geo_coords.lat, 0) / villageParcels.length
     const avgLng = villageParcels.reduce((sum, p) => sum + p.geo_coords.lng, 0) / villageParcels.length
+<<<<<<< HEAD
     const center = projectCoords(avgLat, avgLng, minLat, maxLat, minLng, maxLng, latSpan, lngSpan)
     const radius = villageParcels.length <= 1 ? 0 : villageParcels.length <= 4 ? 26 : 38
+=======
+    const center = project(avgLat, avgLng)
+>>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
 
-    const placed = villageParcels.map((parcel, i) => {
-      const angle = (2 * Math.PI * i) / villageParcels.length - Math.PI / 2
+    const placed = villageParcels.map((parcel) => {
+      const center = project(parcel.geo_coords.lat, parcel.geo_coords.lng)
+      const points = (parcel.geo_polygon || []).map((coord) => {
+        const pt = project(coord.lat, coord.lng)
+        return `${pt.x},${pt.y}`
+      }).join(' ')
+
       return {
         parcel,
-        x: center.x + radius * Math.cos(angle),
-        y: center.y + radius * Math.sin(angle),
+        x: center.x,
+        y: center.y,
+        polygonPoints: points,
       }
     })
 
@@ -286,10 +296,14 @@ export function LandUseExplainerScreen() {
                 >
                   {cluster.villageName}
                 </text>
+<<<<<<< HEAD
                 {cluster.parcels.map(({ parcel, x, y }) => {
                   const hasDispute = disputes.some(d => d.parcel_id === parcel.id && d.status !== 'resolved')
                   const pulseRedClass = showActiveDisputes && hasDispute ? 'pulse-disputed-active' : ''
                   
+=======
+                {cluster.parcels.map(({ parcel, x, y, polygonPoints }) => {
+>>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
                   const style = ZONE_STYLES[parcel.zone_type]
                   const isSelected = selected?.id === parcel.id
                   
@@ -305,6 +319,7 @@ export function LandUseExplainerScreen() {
                         if (e.key === 'Enter' || e.key === ' ') setSelected(parcel)
                       }}
                     >
+<<<<<<< HEAD
                       <circle
                         cx={x}
                         cy={y}
@@ -316,6 +331,30 @@ export function LandUseExplainerScreen() {
                       />
                       <foreignObject x={x - 9} y={y - 9} width="18" height="18" className="pointer-events-none">
                         <style.Icon className="w-4.5 h-4.5" style={{ color: pulseRedClass ? '#991b1b' : style.text }} />
+=======
+                      {polygonPoints ? (
+                        <polygon
+                          points={polygonPoints}
+                          fill={style.fill}
+                          stroke={isSelected ? '#1e293b' : style.ring}
+                          strokeWidth={isSelected ? 3.5 : 2}
+                          strokeDasharray={parcel.status === 'disputed' ? 'none' : parcel.status === 'pending' ? '4 2' : 'none'}
+                          opacity={isSelected ? 1.0 : 0.85}
+                          className="transition-all hover:opacity-100"
+                        />
+                      ) : (
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={isSelected ? 19 : 16}
+                          fill={style.fill}
+                          stroke={style.ring}
+                          strokeWidth={isSelected ? 3 : 2}
+                        />
+                      )}
+                      <foreignObject x={x - 9} y={y - 9} width="18" height="18" className="pointer-events-none">
+                        <style.Icon className="w-4.5 h-4.5" style={{ color: style.text }} />
+>>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
                       </foreignObject>
                     </g>
                   )

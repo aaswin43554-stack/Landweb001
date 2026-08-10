@@ -1,6 +1,6 @@
 import type { CitizenScreen } from '../lib/navigation'
 import { useTranslations } from '../lib/translations'
-import { FlagIcon, MapIcon, SearchIcon } from './icons'
+import { ClockIcon, FlagIcon, MapIcon, SearchIcon } from './icons'
 
 type Props = {
   active: CitizenScreen
@@ -12,6 +12,7 @@ const TABS: { screen: CitizenScreen; Icon: typeof SearchIcon; labelKey: string }
   { screen: 'parcel-lookup', Icon: SearchIcon, labelKey: 'nav.parcel_lookup' },
   { screen: 'land-use-explainer', Icon: MapIcon, labelKey: 'nav.land_use_explainer' },
   { screen: 'dispute-form', Icon: FlagIcon, labelKey: 'nav.dispute_form' },
+  { screen: 'case-status', Icon: ClockIcon, labelKey: 'nav.case_status' },
 ]
 
 export function BottomNav({ active, onChange, iconOnly = false }: Props) {

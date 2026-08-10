@@ -3,6 +3,7 @@ import { useTranslations } from '../lib/translations'
 import { BriefcaseIcon, GlobeIcon } from './icons'
 import { getLastSync, formatLastSync } from '../lib/offlineStorage'
 import { useEffect, useState, useRef } from 'react'
+import { useAuth } from '../lib/auth'
 
 type Props = {
   mode: 'citizen' | 'field-officer' | 'admin'
@@ -51,13 +52,17 @@ export function Header({
   onToggleIconOnlyNav,
 }: Props) {
   const { t, language, setLanguage } = useTranslations()
+  const { user, logout } = useAuth()
   const [lastSync, setLastSync] = useState<string>('')
   const [showA11yMenu, setShowA11yMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const syncTime = getLastSync()
-    setLastSync(syncTime ? formatLastSync(syncTime) : t('lastsynced.value'))
+    async function updateSyncTime() {
+      const syncTime = await getLastSync()
+      setLastSync(syncTime ? formatLastSync(syncTime) : t('lastsynced.value'))
+    }
+    updateSyncTime()
   }, [t])
 
   // Close accessibility menu when clicking outside
@@ -172,6 +177,34 @@ export function Header({
               </div>
             )}
           </div>
+<<<<<<< HEAD
+=======
+
+          {/* User Profile / Logout Pill */}
+          {user && (
+            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-xs font-bold text-slate-700">
+              <span className="truncate max-w-[80px] sm:max-w-none">👤 {user.username}</span>
+              <button
+                type="button"
+                onClick={logout}
+                className="ml-1 text-red-600 hover:underline text-[10px] cursor-pointer"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+
+          {mode === 'citizen' && user?.role === 'field-officer' && (
+            <button
+              type="button"
+              onClick={onEnterFieldOfficer}
+              className="flex items-center gap-1.5 rounded-full border-2 border-gray-300 px-3 py-2 text-sm font-semibold active:bg-gray-100"
+            >
+              <BriefcaseIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">{t('nav.field_officer')}</span>
+            </button>
+          )}
+>>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
         </div>
       </div>
 

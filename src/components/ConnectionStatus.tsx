@@ -34,12 +34,12 @@ export function ConnectionStatus() {
         }
 
         // Update sync status
-        const syncStatus = getSyncStatus(online)
+        const syncStatus = await getSyncStatus(online)
         setPendingCount(syncStatus.pendingCount)
         setLastSync(syncStatus.lastSync)
       } catch {
         setStatus('unreachable')
-        const syncStatus = getSyncStatus(false)
+        const syncStatus = await getSyncStatus(false)
         setPendingCount(syncStatus.pendingCount)
         setLastSync(syncStatus.lastSync)
       }
@@ -49,9 +49,9 @@ export function ConnectionStatus() {
     
     // Listen for online/offline events
     const handleOnline = () => checkOnline()
-    const handleOffline = () => {
+    const handleOffline = async () => {
       setStatus('offline')
-      const syncStatus = getSyncStatus(false)
+      const syncStatus = await getSyncStatus(false)
       setPendingCount(syncStatus.pendingCount)
       setLastSync(syncStatus.lastSync)
     }
