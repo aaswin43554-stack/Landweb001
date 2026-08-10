@@ -19,7 +19,7 @@ export function BottomNav({ active, onChange, iconOnly = false }: Props) {
   const { t } = useTranslations()
 
   return (
-    <nav className="w-full bg-white border-t border-gray-200 flex" role="tablist">
+    <nav className="sticky bottom-0 z-30 w-full bg-white border-t border-gray-200 flex shadow-lg select-none" role="tablist">
       {TABS.map(({ screen, Icon, labelKey }) => {
         const isActive = screen === active
         return (
@@ -31,12 +31,12 @@ export function BottomNav({ active, onChange, iconOnly = false }: Props) {
             aria-label={t(labelKey)}
             title={t(labelKey)}
             onClick={() => onChange(screen)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-all ${
-              iconOnly ? 'py-4' : 'py-3 text-xs font-semibold'
-            } ${isActive ? 'text-emerald-700' : 'text-gray-500'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-all cursor-pointer touch-manipulation active:scale-95 ${
+              iconOnly ? 'py-3 pb-4' : 'py-2 pb-3.5 text-xs font-semibold'
+            } ${isActive ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            <Icon className={`w-8 h-8 ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
-            {!iconOnly && <span className="leading-tight text-center">{t(labelKey)}</span>}
+            <Icon className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
+            {!iconOnly && <span className="leading-tight text-center text-[11px] sm:text-xs font-bold">{t(labelKey)}</span>}
           </button>
         )
       })}

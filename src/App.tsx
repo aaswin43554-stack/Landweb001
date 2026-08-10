@@ -32,18 +32,19 @@ function AppContent() {
     preloadAndCacheAll()
   }, [])
 
-  // Auto-route based on logged-in user role
+  const userId = user?.id
+  const userRole = user?.role
+
+  // Auto-route only when user logs in or switches user roles
   useEffect(() => {
-    if (user) {
-      if (user.role === 'field-officer') {
-        setView({ mode: 'field-officer' })
-      } else if (user.role === 'admin') {
-        setView({ mode: 'admin' })
-      } else {
-        setView({ mode: 'citizen', screen: 'parcel-lookup' })
-      }
+    if (userRole === 'field-officer') {
+      setView({ mode: 'field-officer' })
+    } else if (userRole === 'admin') {
+      setView({ mode: 'admin' })
+    } else if (userRole === 'citizen') {
+      setView((prev) => (prev.mode === 'citizen' ? prev : { mode: 'citizen', screen: 'parcel-lookup' }))
     }
-  }, [user])
+  }, [userId, userRole])
 
   useEffect(() => {
     document.documentElement.classList.toggle('high-contrast', highContrast)
