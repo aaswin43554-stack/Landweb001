@@ -10,12 +10,9 @@ import { CaseStatusScreen } from './screens/CaseStatusScreen'
 import { FieldOfficerScreen } from './screens/FieldOfficerScreen'
 import { LandUseExplainerScreen } from './screens/LandUseExplainerScreen'
 import { ParcelLookupScreen } from './screens/ParcelLookupScreen'
-<<<<<<< HEAD
 import { AdminDashboardScreen } from './screens/AdminDashboardScreen'
 import { P2PSyncManager } from './components/P2PSyncManager'
-=======
 import { LoginScreen } from './screens/LoginScreen'
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
 import { preloadAndCacheAll } from './lib/land'
 
 function AppContent() {
@@ -62,8 +59,8 @@ function AppContent() {
         <FictionalDataBanner />
         <Header
           mode="citizen"
-          onEnterFieldOfficer={() => {}}
-          onExitFieldOfficer={() => {}}
+          onSelectMode={() => {}}
+          onTriggerP2PSync={() => setShowP2PSync(true)}
           highContrast={highContrast}
           onToggleHighContrast={() => setHighContrast(!highContrast)}
           iconOnlyNav={iconOnlyNav}
@@ -121,8 +118,7 @@ function AppContent() {
           role={view.mode} 
           onClose={() => setShowP2PSync(false)} 
           onSyncSuccess={() => {
-            // Trigger a refresh/reloading action in whichever screen is active by reloading window
-            // (or let standard React lifecycle load from updated cache storage values)
+            // Trigger a refresh/reloading action in whichever screen is active
           }}
         />
       )}

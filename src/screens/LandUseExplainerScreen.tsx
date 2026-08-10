@@ -11,20 +11,12 @@ const ZONE_STYLES: Record<ZoneType, { Icon: typeof TreeIcon; fill: string; ring:
   disputed: { Icon: AlertIcon, fill: '#fee2e2', ring: '#dc2626', text: '#991b1b' },
 }
 
-const ZONE_ORDER: ZoneType[] = ['forest', 'agricultural', 'residential', 'disputed']
-
 const VIEW_W = 320
 const VIEW_H = 340
 const PAD = 56
 
 type PlacedParcel = { parcel: Parcel; x: number; y: number; polygonPoints?: string }
 type VillageCluster = { villageId: string; villageName: string; x: number; y: number; parcels: PlacedParcel[] }
-
-function projectCoords(lat: number, lng: number, _minLat: number, maxLat: number, minLng: number, _maxLng: number, latSpan: number, lngSpan: number) {
-  const x = PAD + ((lng - minLng) / lngSpan) * (VIEW_W - 2 * PAD)
-  const y = PAD + ((maxLat - lat) / latSpan) * (VIEW_H - 2 * PAD)
-  return { x, y }
-}
 
 function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageCluster[] {
   if (parcels.length === 0) return []
@@ -60,6 +52,12 @@ function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageClust
   const latSpan = maxLat - minLat || 1
   const lngSpan = maxLng - minLng || 1
 
+  function project(lat: number, lng: number) {
+    const x = PAD + ((lng - minLng) / lngSpan) * (VIEW_W - 2 * PAD)
+    const y = PAD + ((maxLat - lat) / latSpan) * (VIEW_H - 2 * PAD)
+    return { x, y }
+  }
+
   const byVillage = new Map<string, Parcel[]>()
   for (const parcel of mappedParcels) {
     const list = byVillage.get(parcel.village_id) ?? []
@@ -71,16 +69,14 @@ function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageClust
   for (const [villageId, villageParcels] of byVillage) {
     const avgLat = villageParcels.reduce((sum, p) => sum + p.geo_coords.lat, 0) / villageParcels.length
     const avgLng = villageParcels.reduce((sum, p) => sum + p.geo_coords.lng, 0) / villageParcels.length
-<<<<<<< HEAD
-    const center = projectCoords(avgLat, avgLng, minLat, maxLat, minLng, maxLng, latSpan, lngSpan)
-    const radius = villageParcels.length <= 1 ? 0 : villageParcels.length <= 4 ? 26 : 38
-=======
     const center = project(avgLat, avgLng)
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
 
     const placed = villageParcels.map((parcel) => {
       const center = project(parcel.geo_coords.lat, parcel.geo_coords.lng)
-      const points = (parcel.geo_polygon || []).map((coord) => {
+      
+      // Support both polygon_coords (our GPS walk) and geo_polygon (their biometric schema)
+      const coords = parcel.polygon_coords || parcel.geo_polygon || []
+      const points = coords.map((coord) => {
         const pt = project(coord.lat, coord.lng)
         return `${pt.x},${pt.y}`
       }).join(' ')
@@ -89,7 +85,7 @@ function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageClust
         parcel,
         x: center.x,
         y: center.y,
-        polygonPoints: points,
+        polygonPoints: points || undefined,
       }
     })
 
@@ -97,6 +93,28 @@ function clusterByVillage(parcels: Parcel[], selectedYear: number): VillageClust
   }
 
   return clusters
+}
+
+function splitDescription(description: string | null): { category: string; note: string; remark: string } {
+  if (!description) return { category: 'Uncategorized', note: '', remark: '' }
+  
+  let remark = ''
+  let cleanDesc = description
+  const remarkIdx = description.indexOf('\n[Officer Remark:')
+  if (remarkIdx !== -1) {
+    remark = description.slice(remarkIdx + 18, -1)
+    cleanDesc = description.slice(0, remarkIdx)
+  }
+
+  const parts = cleanDesc.split(' — ')
+  const category = parts[0] || 'Uncategorized'
+  let note = parts.slice(1).join(' — ')
+  const evidenceIdx = note.indexOf(' [Photo Evidence:')
+  if (evidenceIdx !== -1) {
+    note = note.slice(0, evidenceIdx)
+  }
+
+  return { category, note, remark }
 }
 
 export function LandUseExplainerScreen() {
@@ -109,8 +127,8 @@ export function LandUseExplainerScreen() {
   const [showActiveDisputes, setShowActiveDisputes] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
 
-  // Zoom and Pan States
-  const [scale, setScale] = useState(1)
+  // Navigation Pan & Zoom states
+  const [scale, setScale] = useState(1.0)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -122,16 +140,18 @@ export function LandUseExplainerScreen() {
     })
   }, [])
 
-  const clusters = useMemo(() => clusterByVillage(parcels, selectedYear), [parcels, selectedYear])
+  const clusters = useMemo(() => {
+    return clusterByVillage(parcels, selectedYear)
+  }, [parcels, selectedYear])
+
 
   // Mouse pan handlers
-  function handleMouseDown(e: React.MouseEvent<SVGSVGElement>) {
-    e.preventDefault()
+  function handleMouseDown(e: React.MouseEvent) {
     setIsDragging(true)
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
   }
 
-  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+  function handleMouseMove(e: React.MouseEvent) {
     if (!isDragging) return
     setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
   }
@@ -141,17 +161,17 @@ export function LandUseExplainerScreen() {
   }
 
   // Touch pan handlers
-  function handleTouchStart(e: React.TouchEvent<SVGSVGElement>) {
-    if (e.touches.length === 1) {
-      setIsDragging(true)
-      const touch = e.touches[0]
-      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y })
-    }
+  function handleTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0]
+    if (!touch) return
+    setIsDragging(true)
+    setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y })
   }
 
-  function handleTouchMove(e: React.TouchEvent<SVGSVGElement>) {
-    if (!isDragging || e.touches.length !== 1) return
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!isDragging) return
     const touch = e.touches[0]
+    if (!touch) return
     setPan({ x: touch.clientX - dragStart.x, y: touch.clientY - dragStart.y })
   }
 
@@ -172,8 +192,8 @@ export function LandUseExplainerScreen() {
         detail: isForest 
           ? 'Protected woodland zone. No private agricultural permits or boundary claims registered.' 
           : 'Customary communal farmland registry.',
-        icon: isForest ? TreeIcon : CropIcon,
-        color: isForest ? 'text-emerald-700' : 'text-amber-700'
+        icon: TreeIcon,
+        color: 'text-emerald-700'
       }
     }
     if (selectedYear === 2020) {
@@ -186,93 +206,86 @@ export function LandUseExplainerScreen() {
         color: 'text-amber-700'
       }
     }
-    // 2026
-    const disp = disputes.find(d => d.parcel_id === selected.id)
+    // 2026 (Current)
+    const isDisputed = disputes.some(d => d.parcel_id === selected.id && d.status !== 'resolved')
     return {
-      owner: disp ? 'Disputed Claimant' : 'Registered Landlord',
-      zoning: selected.zone_type.toUpperCase() + ' Zone',
-      detail: disp ? `Under arbitration review. Case Ref: ${disp.fake_reference_number}. Detail: ${disp.description}` : 'Registered cadastral parcel. Verified clean boundary outlines.',
-      icon: disp ? AlertIcon : HomeIcon,
-      color: disp ? 'text-red-700' : 'text-blue-700'
+      owner: isDisputed ? 'In Arbitration (Somphone S. / Phouvieng S.)' : 'Somphone Sounalath',
+      zoning: selected.zone_type.toUpperCase(),
+      detail: isDisputed 
+        ? 'Active boundary conflict registered. Public transparency drawer active below.' 
+        : 'Registered customary land holdings with digital coordinates.',
+      icon: isDisputed ? AlertIcon : HomeIcon,
+      color: isDisputed ? 'text-red-700' : 'text-slate-800'
     }
   }, [selected, selectedYear, disputes])
 
   return (
-    <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-lg mx-auto w-full">
+    <div className="flex-1 flex flex-col bg-slate-50 gap-4 px-4 py-5 max-w-md mx-auto w-full pb-16">
       
-      {/* Custom CSS Style tag for pulsing red disputed class */}
-      <style>{`
-        @keyframes pulseRed {
-          0%, 100% { fill: #fee2e2; stroke: #dc2626; stroke-width: 2px; }
-          50% { fill: #fecaca; stroke: #b91c1c; stroke-width: 4px; filter: drop-shadow(0 0 5px rgba(220, 38, 38, 0.6)); }
-        }
-        .pulse-disputed-active {
-          animation: pulseRed 1.4s infinite ease-in-out;
-        }
-      `}</style>
-
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <MapIcon className="w-8 h-8 text-emerald-700 shrink-0" />
-          <div>
-            <h2 className="text-xl font-bold">{t('nav.land_use_explainer')}</h2>
-            <p className="text-xs text-gray-500">Interactive Cadastral Evolution Explorer</p>
-          </div>
+      {/* Explanation Banner with direct audio toggle */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-5 shadow-lg flex flex-col gap-3 relative overflow-hidden">
+        <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4">
+          <MapIcon className="w-32 h-32" />
         </div>
+        <div className="flex items-start justify-between relative z-10">
+          <div>
+            <h2 className="text-xl font-black tracking-tight">{t('explainer.title')}</h2>
+            <p className="text-xs text-emerald-100 font-semibold mt-1">Village zoning definitions & history log</p>
+          </div>
+          <PlayExplanationButton text={t('explainer.title')} />
+        </div>
+        <p className="text-xs leading-relaxed text-emerald-50/90 relative z-10">
+          Scroll, pinch to zoom, and pan around the village cluster maps. Turn on <b>Active Disputes</b> to highlight land claims.
+        </p>
+      </div>
 
-        {/* Show active disputes switch */}
-        <label className="flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200 border-2 border-slate-250 px-3 py-1.5 rounded-full select-none">
-          <span className="text-xs font-extrabold text-slate-700">⚠️ Active Disputes</span>
+      {/* Layer selector bar */}
+      <div className="bg-white border-2 border-gray-200 rounded-3xl p-4 flex items-center justify-between shadow-xs">
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-slate-800">Show Active Disputes</span>
+          <span className="text-[10px] text-slate-400 font-semibold">Pulse conflicting land claims in red</span>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showActiveDisputes}
             onChange={() => setShowActiveDisputes(!showActiveDisputes)}
-            className="w-4 h-4 text-red-600 border-slate-350 focus:ring-red-500 rounded cursor-pointer"
+            className="sr-only peer cursor-pointer"
+            aria-label="Toggle active disputes view"
           />
+          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
         </label>
       </div>
 
-      {/* SVG Canvas Map Container */}
-      <div className="rounded-3xl border-2 border-gray-200 bg-white overflow-hidden relative shadow-sm">
-        {/* Zoom & Pan Controls Overlay */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+      {/* Map visualization Canvas */}
+      <div className="w-full h-80 bg-white border-2 border-gray-200 rounded-3xl relative shadow-xs overflow-hidden select-none">
+        {/* Zoom controls */}
+        <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-20">
           <button
             type="button"
-            onClick={() => setScale((prev) => Math.min(prev + 0.25, 3))}
-            className="w-8 h-8 rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center font-black text-sm text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs cursor-pointer select-none"
-            aria-label="Zoom In"
+            onClick={() => setScale(s => Math.min(s + 0.15, 2.5))}
+            className="w-8 h-8 rounded-xl bg-slate-800 text-white font-black text-sm flex items-center justify-center hover:bg-slate-900 shadow active:scale-90 transition-all cursor-pointer"
           >
             +
           </button>
           <button
             type="button"
-            onClick={() => setScale((prev) => Math.max(prev - 0.25, 0.5))}
-            className="w-8 h-8 rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center font-black text-sm text-gray-700 hover:bg-gray-100 active:scale-95 transition-all shadow-xs cursor-pointer select-none"
-            aria-label="Zoom Out"
+            onClick={() => setScale(s => Math.max(s - 0.15, 0.6))}
+            className="w-8 h-8 rounded-xl bg-slate-800 text-white font-black text-sm flex items-center justify-center hover:bg-slate-900 shadow active:scale-90 transition-all cursor-pointer"
           >
             −
           </button>
           <button
             type="button"
-            onClick={() => { setScale(1); setPan({ x: 0, y: 0 }) }}
-            className="px-2 py-1 rounded-lg bg-white border-2 border-gray-200 flex items-center justify-center font-extrabold text-[10px] text-gray-600 hover:bg-gray-100 active:scale-95 transition-all shadow-xs cursor-pointer select-none"
-            aria-label="Reset Map"
+            onClick={() => { setScale(1.0); setPan({ x: 0, y: 0 }) }}
+            className="w-8 h-8 rounded-xl bg-white border border-slate-250 text-slate-700 font-bold text-[9px] flex items-center justify-center hover:bg-slate-100 shadow active:scale-90 transition-all cursor-pointer"
           >
-            Reset
+            RESET
           </button>
         </div>
 
-        {/* Current Year Badge Overlay */}
-        <div className="absolute top-3 left-3 bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-widest px-2.5 py-1.5 rounded-lg shadow-sm z-10 animate-pulse">
-          Ledger Year: {selectedYear}
-        </div>
-
-        {/* Map Viewport */}
         <svg
-          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          className="w-full h-auto cursor-grab active:cursor-grabbing select-none"
-          role="img"
-          aria-label={t('nav.land_use_explainer')}
+          className="w-full h-full cursor-grab active:cursor-grabbing"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUpOrLeave}
@@ -296,14 +309,11 @@ export function LandUseExplainerScreen() {
                 >
                   {cluster.villageName}
                 </text>
-<<<<<<< HEAD
-                {cluster.parcels.map(({ parcel, x, y }) => {
+                
+                {cluster.parcels.map(({ parcel, x, y, polygonPoints }) => {
                   const hasDispute = disputes.some(d => d.parcel_id === parcel.id && d.status !== 'resolved')
                   const pulseRedClass = showActiveDisputes && hasDispute ? 'pulse-disputed-active' : ''
                   
-=======
-                {cluster.parcels.map(({ parcel, x, y, polygonPoints }) => {
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
                   const style = ZONE_STYLES[parcel.zone_type]
                   const isSelected = selected?.id === parcel.id
                   
@@ -319,42 +329,30 @@ export function LandUseExplainerScreen() {
                         if (e.key === 'Enter' || e.key === ' ') setSelected(parcel)
                       }}
                     >
-<<<<<<< HEAD
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r={isSelected ? 18 : 15}
-                        fill={pulseRedClass ? undefined : style.fill}
-                        stroke={pulseRedClass ? undefined : style.ring}
-                        strokeWidth={isSelected ? 3 : 2}
-                        className={pulseRedClass}
-                      />
-                      <foreignObject x={x - 9} y={y - 9} width="18" height="18" className="pointer-events-none">
-                        <style.Icon className="w-4.5 h-4.5" style={{ color: pulseRedClass ? '#991b1b' : style.text }} />
-=======
                       {polygonPoints ? (
                         <polygon
                           points={polygonPoints}
-                          fill={style.fill}
-                          stroke={isSelected ? '#1e293b' : style.ring}
+                          fill={pulseRedClass ? undefined : style.fill}
+                          stroke={pulseRedClass ? undefined : isSelected ? '#1e293b' : style.ring}
                           strokeWidth={isSelected ? 3.5 : 2}
                           strokeDasharray={parcel.status === 'disputed' ? 'none' : parcel.status === 'pending' ? '4 2' : 'none'}
                           opacity={isSelected ? 1.0 : 0.85}
-                          className="transition-all hover:opacity-100"
+                          className={`transition-all hover:opacity-100 ${pulseRedClass}`}
                         />
                       ) : (
                         <circle
                           cx={x}
                           cy={y}
-                          r={isSelected ? 19 : 16}
-                          fill={style.fill}
-                          stroke={style.ring}
+                          r={isSelected ? 18 : 15}
+                          fill={pulseRedClass ? undefined : style.fill}
+                          stroke={pulseRedClass ? undefined : style.ring}
                           strokeWidth={isSelected ? 3 : 2}
+                          className={pulseRedClass}
                         />
                       )}
+                      
                       <foreignObject x={x - 9} y={y - 9} width="18" height="18" className="pointer-events-none">
-                        <style.Icon className="w-4.5 h-4.5" style={{ color: style.text }} />
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
+                        <style.Icon className="w-4.5 h-4.5" style={{ color: pulseRedClass ? '#991b1b' : style.text }} />
                       </foreignObject>
                     </g>
                   )
@@ -369,8 +367,8 @@ export function LandUseExplainerScreen() {
       <div className="bg-white border-2 border-gray-200 rounded-3xl p-4 flex flex-col gap-3 shadow-xs">
         <div className="flex items-center justify-between text-xs font-black text-slate-700">
           <span>📅 Chronological Time Travel Ledger</span>
-          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-            Slide to travel years
+          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono">
+            {selectedYear}
           </span>
         </div>
         
@@ -383,7 +381,6 @@ export function LandUseExplainerScreen() {
             value={selectedYear}
             onChange={(e) => {
               const val = parseInt(e.target.value)
-              // Snap to nearest landmark: 2015, 2020, 2026
               if (val < 2018) setSelectedYear(2015)
               else if (val >= 2018 && val <= 2023) setSelectedYear(2020)
               else setSelectedYear(2026)
@@ -391,205 +388,55 @@ export function LandUseExplainerScreen() {
             className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-700 focus:outline-none"
           />
           <div className="flex justify-between text-[11px] font-extrabold text-slate-400 mt-2 select-none px-1">
-            <span className={`cursor-pointer ${selectedYear === 2015 ? 'text-emerald-700 scale-110' : ''}`} onClick={() => setSelectedYear(2015)}>2015 (Forest Ledger)</span>
-            <span className={`cursor-pointer ${selectedYear === 2020 ? 'text-emerald-700 scale-110' : ''}`} onClick={() => setSelectedYear(2020)}>2020 (Agri Permits)</span>
-            <span className={`cursor-pointer ${selectedYear === 2026 ? 'text-emerald-700 scale-110' : ''}`} onClick={() => setSelectedYear(2026)}>2026 (Current)</span>
+            <span className={`cursor-pointer transition-all ${selectedYear === 2015 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2015)}>2015</span>
+            <span className={`cursor-pointer transition-all ${selectedYear === 2020 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2020)}>2020</span>
+            <span className={`cursor-pointer transition-all ${selectedYear === 2026 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2026)}>2026 (Current)</span>
           </div>
         </div>
       </div>
 
-      {/* Year-Specific Ledger Info display */}
-      {selected && selectedParcelLedger && (
-        <div className="bg-slate-100/70 border border-slate-200 rounded-3xl p-4 flex flex-col gap-2 shadow-inner">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold text-slate-500 font-mono">{selected.id} Audit trail</h4>
-            <span className="text-[10px] font-black text-slate-450 uppercase">{selected.demo_village_name}</span>
+      {/* Selected Parcel Drawer details */}
+      {selected && (
+        <div className="rounded-3xl border-2 border-slate-350 bg-white p-4 shadow-sm flex flex-col gap-3 relative animate-in slide-in-from-bottom-4">
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="absolute top-3 right-3 p-1 rounded-full hover:bg-slate-100"
+          >
+            <XIcon className="w-5 h-5 text-slate-500" />
+          </button>
+          
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 font-mono tracking-wide">{selected.id}</span>
+            <h3 className="text-sm font-black text-slate-800">
+              {selected.demo_village_name} Plot Registry
+            </h3>
           </div>
-          <div className="flex items-start gap-3 mt-1 text-xs">
-            <span className={`w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-200 ${selectedParcelLedger.color} shrink-0`}>
-              <selectedParcelLedger.icon className="w-5 h-5" />
-            </span>
-            <div className="flex flex-col gap-1 w-full text-slate-700">
-              <div className="flex items-center justify-between flex-wrap gap-1">
-                <span className="font-extrabold text-slate-800">{selectedParcelLedger.owner}</span>
-                <span className="font-mono text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded-md text-slate-500">{selectedParcelLedger.zoning}</span>
-              </div>
-              <p className="text-slate-650 leading-relaxed mt-0.5 font-medium">{selectedParcelLedger.detail}</p>
+
+          <div className="flex gap-2.5 mt-1 border-t border-slate-100 pt-3">
+            <div className="flex-1 bg-slate-50/50 border border-slate-200 rounded-2xl p-2.5 flex flex-col gap-1 text-[11px]">
+              <p className="font-extrabold text-slate-400 uppercase text-[9px] tracking-wide">Historical Snapshot ({selectedYear})</p>
+              <p className="font-bold text-slate-700 mt-1">👤 Owner: <span className="text-slate-800 font-semibold">{selectedParcelLedger?.owner}</span></p>
+              <p className="font-bold text-slate-700">🏷️ Zoning: <span className={`${selectedParcelLedger?.color} font-black`}>{selectedParcelLedger?.zoning}</span></p>
+              <p className="text-slate-550 italic leading-snug mt-1.5">{selectedParcelLedger?.detail}</p>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Legend Block */}
-      <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider">{t('explainer.legend_title')}</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {ZONE_ORDER.map((zone) => {
-            const style = ZONE_STYLES[zone]
-            return (
-              <div key={zone} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 shadow-xs">
-                <span
-                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: style.fill, border: `2.5px solid ${style.ring}` }}
-                >
-                  <style.Icon className="w-4 h-4" style={{ color: style.text }} />
-                </span>
-                <span className="text-xs font-bold text-gray-700">{t(`zone.${zone}`)}</span>
+          {/* Active Dispute Public Transparency Notice Drawer */}
+          {activeDisputeForSelected && (
+            <div className="border-2 border-red-300 rounded-2xl bg-red-50/40 p-3 mt-1 flex flex-col gap-2 animate-pulse">
+              <div className="flex items-center gap-1.5 text-xs text-red-800 font-black">
+                <AlertIcon className="w-4.5 h-4.5 text-red-600 shrink-0" />
+                <span>⚠️ Public Dispute Transparency Disclosure Notice</span>
               </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Drawer Overlay for Parcel Detail or Transparency Notice */}
-      {selected && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-4"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl bg-white p-5 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Context-aware display: if showing active disputes is ON and parcel is disputed, we show transparency notice */}
-            {showActiveDisputes && activeDisputeForSelected ? (
-              // transparency Notice Modal
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between border-b border-red-100 pb-2.5">
-                  <div className="flex items-center gap-2 text-red-650">
-                    <span className="text-xl">⚠️</span>
-                    <div>
-                      <h3 className="text-sm font-extrabold uppercase tracking-widest text-red-800">Public Transparency Notice</h3>
-                      <p className="text-[10px] text-red-600 font-bold">Land Use Dispute Registration Ledger</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(null)}
-                    className="p-1 rounded-full hover:bg-slate-100"
-                  >
-                    <XIcon className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-
-                <div className="text-xs text-slate-700 flex flex-col gap-2.5">
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 font-semibold">
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400">Parcel ID</p>
-                      <p className="font-mono text-slate-800 truncate">{selected.id}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400">Filing Date</p>
-                      <p className="text-slate-800">
-                        {new Date(activeDisputeForSelected.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400">Reference Number</p>
-                      <p className="font-mono text-slate-800 truncate text-red-700">{activeDisputeForSelected.fake_reference_number}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400">Resolution Status</p>
-                      <p className="capitalize text-amber-700 font-extrabold">{activeDisputeForSelected.status.replace('_', ' ')}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <h4 className="font-extrabold text-slate-600">Disputed Boundary Claims</h4>
-                    <div className="bg-red-50/50 border border-red-200 rounded-2xl p-3 flex flex-col gap-2">
-                      <div>
-                        <p className="font-bold text-[10px] text-slate-500 uppercase">Claimant Submitter</p>
-                        <p className="font-bold text-slate-800 text-sm">{activeDisputeForSelected.submitted_by}</p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-[10px] text-slate-500 uppercase">Claimant Statement of Conflict</p>
-                        <p className="text-slate-700 mt-0.5 leading-relaxed font-semibold">{activeDisputeForSelected.description}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Public audio attachment if available */}
-                  {activeDisputeForSelected.audio && (
-                    <div className="flex flex-col gap-1 mt-1">
-                      <p className="font-bold text-[10px] text-slate-500 uppercase">Public Voice Statement Testimony</p>
-                      <audio src={activeDisputeForSelected.audio} controls className="w-full h-8 mt-1" />
-                    </div>
-                  )}
-
-                  <div className="w-full border-t border-slate-100 pt-3 text-[10px] font-bold text-slate-400 text-center">
-                    📢 Published in accordance with the Village Land Information Transparency Code.
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSelected(null)}
-                  className="mt-2 w-full rounded-2xl bg-red-700 hover:bg-red-800 text-white py-3 text-sm font-bold shadow-md"
-                >
-                  Acknowledge Notice
-                </button>
+              <div className="text-[10px] text-red-950 font-semibold leading-relaxed flex flex-col gap-1">
+                <p><span className="font-bold">Case Reference:</span> {activeDisputeForSelected.fake_reference_number}</p>
+                <p><span className="font-bold">Conflict Stage:</span> {activeDisputeForSelected.status.toUpperCase()}</p>
+                <p><span className="font-bold">Citizen Claim Note:</span> "{splitDescription(activeDisputeForSelected.description).note}"</p>
+                <p className="italic text-slate-500 font-medium">Public access provided in compliance with customary registry transparency laws.</p>
               </div>
-            ) : (
-              // Standard Zoning Explainer Modal
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-xs"
-                      style={{
-                        backgroundColor: ZONE_STYLES[selected.zone_type].fill,
-                        border: `2px solid ${ZONE_STYLES[selected.zone_type].ring}`,
-                      }}
-                    >
-                      {(() => {
-                        const Icon = ZONE_STYLES[selected.zone_type].Icon
-                        return <Icon className="w-5 h-5" style={{ color: ZONE_STYLES[selected.zone_type].text }} />
-                      })()}
-                    </span>
-                    <div>
-                      <p className="text-base font-extrabold text-slate-800">{t(`zone.${selected.zone_type}`)}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{selected.id}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(null)}
-                    aria-label={t('explainer.panel.close')}
-                    className="shrink-0 p-1 rounded-full hover:bg-gray-100"
-                  >
-                    <XIcon className="w-5 h-5 text-gray-500" />
-                  </button>
-                </div>
-
-                <p className="text-sm text-gray-700 leading-relaxed font-semibold mt-1">
-                  {t(`zone_explain.${selected.zone_type}`)}
-                </p>
-                
-                <div className="mt-1">
-                  <PlayExplanationButton text={t(`zone_explain.${selected.zone_type}`)} />
-                </div>
-
-                <div className="text-xs text-gray-500 border-t border-gray-100 pt-3 flex flex-col gap-1.5 font-semibold">
-                  <p className="flex justify-between">
-                    <span>{t('explainer.panel.village_label')}:</span>
-                    <span className="text-gray-700">{selected.demo_village_name}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span>Zoning Code:</span>
-                    <span className="text-gray-700 uppercase font-mono">{selected.zone_type}</span>
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSelected(null)}
-                  className="mt-1 w-full rounded-2xl bg-emerald-700 text-white py-3 text-sm font-bold hover:bg-emerald-800 shadow"
-                >
-                  {t('explainer.panel.close')}
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

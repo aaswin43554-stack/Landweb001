@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import {
   getDisputeQueue,
-  setToStorage,
   getCachedDbDisputes,
   cacheDbDisputes,
-  addSyncLog
+  addSyncLog,
+  db
 } from '../lib/offlineStorage'
 import type { Dispute } from '../lib/land'
 
@@ -40,14 +40,14 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
     if (syncState !== 'connected') return
 
     // Stage 2: Connected -> start transfer after 2 seconds
-    const transferTimer = setTimeout(() => {
+    const transferTimer = setTimeout(async () => {
       setSyncState('transferring')
       
       // Perform the actual synchronization
       let count = 0
       if (role === 'citizen') {
         // Citizen sends queued disputes
-        const queue = getDisputeQueue()
+        const queue = await getDisputeQueue()
         count = queue.length
         setItemCount(count)
         
@@ -59,7 +59,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
           localStorage.setItem(sharedKey, JSON.stringify(mergedShared))
           
           // Clear local queue
-          setToStorage('giz-offline-dispute-queue', [])
+          await db.disputeQueue.clear()
           addSyncLog(`WebRTC Sync: Sent ${count} disputes to Officer tablet`)
         }
       } else {

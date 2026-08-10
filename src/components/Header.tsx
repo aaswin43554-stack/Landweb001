@@ -87,6 +87,20 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* User Profile / Logout Pill */}
+          {user && (
+            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-bold text-slate-700">
+              <span className="truncate max-w-[80px]">👤 {user.username}</span>
+              <button
+                type="button"
+                onClick={logout}
+                className="text-red-600 hover:underline text-[9px] cursor-pointer pl-0.5"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+
           {/* P2P Sync Trigger Button */}
           <button
             type="button"
@@ -177,34 +191,6 @@ export function Header({
               </div>
             )}
           </div>
-<<<<<<< HEAD
-=======
-
-          {/* User Profile / Logout Pill */}
-          {user && (
-            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-xs font-bold text-slate-700">
-              <span className="truncate max-w-[80px] sm:max-w-none">👤 {user.username}</span>
-              <button
-                type="button"
-                onClick={logout}
-                className="ml-1 text-red-600 hover:underline text-[10px] cursor-pointer"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-
-          {mode === 'citizen' && user?.role === 'field-officer' && (
-            <button
-              type="button"
-              onClick={onEnterFieldOfficer}
-              className="flex items-center gap-1.5 rounded-full border-2 border-gray-300 px-3 py-2 text-sm font-semibold active:bg-gray-100"
-            >
-              <BriefcaseIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">{t('nav.field_officer')}</span>
-            </button>
-          )}
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
         </div>
       </div>
 

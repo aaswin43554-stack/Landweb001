@@ -13,12 +13,9 @@ import {
   cacheAllData,
   getDisputeOverrides,
   saveDisputeOverride,
-<<<<<<< HEAD
   cacheDbDisputes,
   getCachedDbDisputes,
-=======
   getLocalDisputeEvents,
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
 } from './offlineStorage'
 
 export type ParcelStatus = 'registered' | 'pending' | 'disputed'
@@ -37,11 +34,8 @@ export type Parcel = {
   status: ParcelStatus
   zone_type: ZoneType
   geo_coords: { lat: number; lng: number }
-<<<<<<< HEAD
   polygon_coords?: { lat: number; lng: number }[]
-=======
   geo_polygon?: { lat: number; lng: number }[]
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
 }
 
 const PARCEL_COLUMNS = 'id, village_id, demo_village_name, status, zone_type, geo_coords'
@@ -485,11 +479,7 @@ export async function fetchDisputes(): Promise<Dispute[]> {
         dbDisputes = getCachedDbDisputes()
       }
     } catch {
-<<<<<<< HEAD
       dbDisputes = getCachedDbDisputes()
-=======
-      // Offline fallback
->>>>>>> f49bd50c6356d5c7f353daf8fbede4347e757aa0
     }
   } else {
     dbDisputes = getCachedDbDisputes()
