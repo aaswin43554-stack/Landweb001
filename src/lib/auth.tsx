@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
-export type UserRole = 'citizen' | 'field-officer'
+export type UserRole = 'citizen' | 'field-officer' | 'admin'
 
 export interface User {
   id: string
@@ -18,6 +18,7 @@ interface AuthContextType {
   loginWithPasskey: (userId: string, enteredPin?: string) => Promise<boolean>
   registerPasskey: (id: string, username: string, role: UserRole, backupPin: string) => Promise<boolean>
   loginWithQR: (qrCodeData: string) => Promise<boolean>
+  loginDirectly: (userId: string) => void
   logout: () => void
 }
 
@@ -30,6 +31,7 @@ const REGISTERED_USERS_KEY = 'giz-registered-users'
 const DEFAULT_REGISTRY: Record<string, User> = {
   'demo-citizen': { id: 'demo-citizen', username: 'Demo Citizen', role: 'citizen', biometricRegistered: true, backupPin: '1234' },
   'demo-officer': { id: 'demo-officer', username: 'Officer Sisavath', role: 'field-officer', biometricRegistered: true, backupPin: '1234' },
+  'demo-admin': { id: 'demo-admin', username: 'Village Chief (Admin)', role: 'admin', biometricRegistered: true, backupPin: '1234' },
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Force defaults to have correct structure and properties
           registry['demo-citizen'] = { ...DEFAULT_REGISTRY['demo-citizen'], ...registry['demo-citizen'] }
           registry['demo-officer'] = { ...DEFAULT_REGISTRY['demo-officer'], ...registry['demo-officer'] }
+          registry['demo-admin'] = { ...DEFAULT_REGISTRY['demo-admin'], ...registry['demo-admin'] }
         } catch {
           // Fallback to default registry if parsing crashes
         }
@@ -259,6 +262,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const loginDirectly = (userId: string) => {
+    const registry = getRegistry()
+    const targetUser = registry[userId]
+    if (targetUser) {
+      setUser(targetUser)
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(targetUser))
+    }
+  }
+
   const logout = () => {
     setUser(null)
     localStorage.removeItem(LOCAL_STORAGE_KEY)
@@ -273,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithPasskey,
         registerPasskey,
         loginWithQR,
+        loginDirectly,
         logout,
       }}
     >

@@ -16,7 +16,7 @@ import { LoginScreen } from './screens/LoginScreen'
 import { preloadAndCacheAll } from './lib/land'
 
 function AppContent() {
-  const { user } = useAuth()
+  const { user, loginDirectly } = useAuth()
   const [view, setView] = useState<AppView>({ mode: 'citizen', screen: 'parcel-lookup' })
   const [highContrast, setHighContrast] = useState(() => {
     return localStorage.getItem('giz-a11y-high-contrast') === 'true'
@@ -37,6 +37,8 @@ function AppContent() {
     if (user) {
       if (user.role === 'field-officer') {
         setView({ mode: 'field-officer' })
+      } else if (user.role === 'admin') {
+        setView({ mode: 'admin' })
       } else {
         setView({ mode: 'citizen', screen: 'parcel-lookup' })
       }
@@ -52,14 +54,27 @@ function AppContent() {
     localStorage.setItem('giz-a11y-icon-only-nav', String(iconOnlyNav))
   }, [iconOnlyNav])
 
+  const handleSelectMode = (mode: 'citizen' | 'field-officer' | 'admin') => {
+    if (mode === 'admin') {
+      loginDirectly('demo-admin')
+      setView({ mode: 'admin' })
+    } else if (mode === 'field-officer') {
+      loginDirectly('demo-officer')
+      setView({ mode: 'field-officer' })
+    } else {
+      loginDirectly('demo-citizen')
+      setView({ mode: 'citizen', screen: 'parcel-lookup' })
+    }
+  }
+
   // 1. If not authenticated, force Login Screen
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col max-w-full overflow-x-hidden">
         <FictionalDataBanner />
         <Header
           mode="citizen"
-          onSelectMode={() => {}}
+          onSelectMode={handleSelectMode}
           onTriggerP2PSync={() => setShowP2PSync(true)}
           highContrast={highContrast}
           onToggleHighContrast={() => setHighContrast(!highContrast)}
@@ -75,19 +90,11 @@ function AppContent() {
 
   // 2. Authenticated layout rendering
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col max-w-full overflow-x-hidden">
       <FictionalDataBanner />
       <Header
         mode={view.mode}
-        onSelectMode={(mode) => {
-          if (mode === 'citizen') {
-            setView({ mode: 'citizen', screen: 'parcel-lookup' })
-          } else if (mode === 'field-officer') {
-            setView({ mode: 'field-officer' })
-          } else {
-            setView({ mode: 'admin' })
-          }
-        }}
+        onSelectMode={handleSelectMode}
         onTriggerP2PSync={() => setShowP2PSync(true)}
         highContrast={highContrast}
         onToggleHighContrast={() => setHighContrast(!highContrast)}
@@ -118,7 +125,7 @@ function AppContent() {
           role={view.mode} 
           onClose={() => setShowP2PSync(false)} 
           onSyncSuccess={() => {
-            // Trigger a refresh/reloading action in whichever screen is active
+            // Reload action
           }}
         />
       )}
