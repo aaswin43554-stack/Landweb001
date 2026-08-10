@@ -1,13 +1,13 @@
 import type { Language } from '../lib/translations'
 import { useTranslations } from '../lib/translations'
-import { ArrowLeftIcon, BriefcaseIcon, GlobeIcon } from './icons'
+import { BriefcaseIcon, GlobeIcon } from './icons'
 import { getLastSync, formatLastSync } from '../lib/offlineStorage'
 import { useEffect, useState, useRef } from 'react'
 
 type Props = {
-  mode: 'citizen' | 'field-officer'
-  onEnterFieldOfficer: () => void
-  onExitFieldOfficer: () => void
+  mode: 'citizen' | 'field-officer' | 'admin'
+  onSelectMode: (mode: 'citizen' | 'field-officer' | 'admin') => void
+  onTriggerP2PSync: () => void
   highContrast: boolean
   onToggleHighContrast: () => void
   iconOnlyNav: boolean
@@ -43,8 +43,8 @@ function AccessibilityIcon({ className }: { className?: string }) {
 
 export function Header({
   mode,
-  onEnterFieldOfficer,
-  onExitFieldOfficer,
+  onSelectMode,
+  onTriggerP2PSync,
   highContrast,
   onToggleHighContrast,
   iconOnlyNav,
@@ -75,36 +75,54 @@ export function Header({
     <header className="w-full bg-white border-b border-gray-200 px-4 py-3 relative z-40">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {mode === 'field-officer' && (
-            <button
-              type="button"
-              onClick={onExitFieldOfficer}
-              className="shrink-0 p-2 -ml-2 rounded-full hover:bg-gray-100 active:bg-gray-200"
-              aria-label={t('nav.back_to_citizen')}
-            >
-              <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
-            </button>
-          )}
-          <h1 className="text-lg font-bold truncate">{t('app.title')}</h1>
+          <h1 className="text-lg font-extrabold truncate text-slate-800 tracking-tight flex items-center gap-2">
+            <span className="w-2.5 h-7 bg-emerald-600 rounded-full inline-block"></span>
+            {t('app.title')}
+          </h1>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* P2P Sync Trigger Button */}
+          <button
+            type="button"
+            onClick={onTriggerP2PSync}
+            className="flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-full text-xs shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          >
+            📶 P2P Sync
+          </button>
+
+          {/* User Role Selection Dropdown */}
+          <div className="relative flex items-center gap-1 rounded-full border-2 border-gray-300 px-2 py-1 bg-white text-sm font-semibold hover:bg-gray-50">
+            <BriefcaseIcon className="w-4 h-4 text-gray-500" />
+            <select
+              value={mode}
+              onChange={(e) => onSelectMode(e.target.value as 'citizen' | 'field-officer' | 'admin')}
+              className="appearance-none bg-transparent pr-4 focus:outline-none cursor-pointer text-gray-800 font-bold text-xs"
+              aria-label="Select user role"
+            >
+              <option value="citizen">Citizen</option>
+              <option value="field-officer">Officer</option>
+              <option value="admin">Chief (Admin)</option>
+            </select>
+            <span className="text-[9px] text-gray-400 font-bold pointer-events-none pr-1">▼</span>
+          </div>
+
           {/* Direct Language Selection Dropdown */}
-          <div className="relative flex items-center gap-1.5 rounded-full border-2 border-gray-300 px-2.5 py-1.5 bg-white text-sm font-semibold hover:bg-gray-50">
-            <GlobeIcon className="w-5 h-5 text-gray-500" />
+          <div className="relative flex items-center gap-1 rounded-full border-2 border-gray-300 px-2 py-1 bg-white text-sm font-semibold hover:bg-gray-50">
+            <GlobeIcon className="w-4 h-4 text-gray-500" />
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as Language)}
-              className="appearance-none bg-transparent pr-5 focus:outline-none cursor-pointer text-gray-800 font-semibold text-sm"
+              className="appearance-none bg-transparent pr-4 focus:outline-none cursor-pointer text-gray-800 font-bold text-xs"
               aria-label="Select language"
             >
-              {Object.entries(LANGUAGE_LABELS).map(([code, name]) => (
+              {Object.entries(LANGUAGE_LABELS).map(([code]) => (
                 <option key={code} value={code}>
-                  {name}
+                  {code.toUpperCase()}
                 </option>
               ))}
             </select>
-            <span className="absolute right-2.5 pointer-events-none text-xs text-gray-400 font-bold">▼</span>
+            <span className="text-[9px] text-gray-400 font-bold pointer-events-none pr-1">▼</span>
           </div>
 
           {/* Accessibility Settings Trigger */}
@@ -112,13 +130,13 @@ export function Header({
             <button
               type="button"
               onClick={() => setShowA11yMenu(!showA11yMenu)}
-              className={`flex items-center justify-center p-2 rounded-full border-2 text-sm font-semibold active:bg-gray-100 ${
+              className={`flex items-center justify-center p-1.5 rounded-full border-2 text-sm font-semibold active:bg-gray-100 ${
                 showA11yMenu ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-gray-300 text-gray-700'
               }`}
               aria-label="Accessibility Settings"
               aria-expanded={showA11yMenu}
             >
-              <AccessibilityIcon className="w-6 h-6" />
+              <AccessibilityIcon className="w-5 h-5" />
             </button>
 
             {/* Accessibility Popover Panel */}
@@ -154,25 +172,12 @@ export function Header({
               </div>
             )}
           </div>
-
-          {mode === 'citizen' && (
-            <button
-              type="button"
-              onClick={onEnterFieldOfficer}
-              className="flex items-center gap-1.5 rounded-full border-2 border-gray-300 px-3 py-2 text-sm font-semibold active:bg-gray-100"
-            >
-              <BriefcaseIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">{t('nav.field_officer')}</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {mode === 'citizen' && (
-        <p className="mt-1 text-xs text-gray-500">
-          {t('lastsynced.label')}: {lastSync}
-        </p>
-      )}
+      <p className="mt-1 text-xs text-gray-400 font-medium">
+        {t('lastsynced.label')}: {lastSync}
+      </p>
     </header>
   )
 }

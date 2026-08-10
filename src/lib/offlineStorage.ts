@@ -4,7 +4,7 @@
  * and dispute submissions with automatic sync when online.
  */
 
-import type { Village, Parcel } from './land'
+import type { Village, Parcel, Dispute } from './land'
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -66,7 +66,7 @@ function getFromStorage<T>(key: string, defaultValue: T): T {
 /**
  * Generic localStorage setter with error handling
  */
-function setToStorage<T>(key: string, value: T): boolean {
+export function setToStorage<T>(key: string, value: T): boolean {
   if (!isBrowser()) return false
   try {
     localStorage.setItem(key, JSON.stringify(value))
@@ -245,6 +245,58 @@ export function hasAnyCachedData(): boolean {
 }
 
 // ============================================================================
+// DISPUTES DATABASE CACHE
+// ============================================================================
+
+const DISPUTES_DB_CACHE_KEY = 'giz-offline-db-disputes'
+
+export function cacheDbDisputes(disputes: Dispute[]): void {
+  setToStorage(DISPUTES_DB_CACHE_KEY, disputes)
+}
+
+export function getCachedDbDisputes(): Dispute[] {
+  // If empty, return a set of initial seed disputes for the demo
+  const cached = getFromStorage<Dispute[]>(DISPUTES_DB_CACHE_KEY, [])
+  if (cached.length === 0) {
+    const initialSeed: Dispute[] = [
+      {
+        id: 'demo-dsp-uuid-0001',
+        parcel_id: 'DEMO-PARCEL-0005',
+        submitted_by: 'Somphone S.',
+        status: 'submitted',
+        fake_reference_number: 'DEMO-DSP-0001',
+        created_at: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+        description: 'Boundary problem — Neighbor B built a new wooden fence encroaching about 1.5 meters into my yard. We request immediate field inspection.',
+        parcel: { demo_village_name: 'Ban Namdeng', village_id: 'DEMO-VLG-001', zone_type: 'forest' }
+      },
+      {
+        id: 'demo-dsp-uuid-0002',
+        parcel_id: 'DEMO-PARCEL-0012',
+        submitted_by: 'Bounmy P.',
+        status: 'in_review',
+        fake_reference_number: 'DEMO-DSP-0002',
+        created_at: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
+        description: 'Wrong information shown — The system indicates my land zone is purely Agricultural, but 40% of the parcel was re-zoned as Residential in 2020. Please correct the zoning record.',
+        parcel: { demo_village_name: 'Ban Thongdee', village_id: 'DEMO-VLG-004', zone_type: 'agricultural' }
+      },
+      {
+        id: 'demo-dsp-uuid-0003',
+        parcel_id: 'DEMO-PARCEL-0019',
+        submitted_by: 'Chansamone V.',
+        status: 'resolved',
+        fake_reference_number: 'DEMO-DSP-0003',
+        created_at: new Date(Date.now() - 86400000 * 10).toISOString(), // 10 days ago
+        description: 'Who owns this land — Ownership dispute between siblings. Resolved — [Officer remark: Checked historical ledger of 2015 and family lease agreement. Boundary divided equally into 2 plots.]',
+        parcel: { demo_village_name: 'Ban Vilaysook', village_id: 'DEMO-VLG-003', zone_type: 'residential' }
+      }
+    ]
+    setToStorage(DISPUTES_DB_CACHE_KEY, initialSeed)
+    return initialSeed
+  }
+  return cached
+}
+
+// ============================================================================
 // DISPUTE RESOLUTION OVERRIDES (for offline officer actions)
 // ============================================================================
 
@@ -266,4 +318,53 @@ export function saveDisputeOverride(id: string, status: 'submitted' | 'in_review
     updatedAt: Date.now(),
   }
   setToStorage(STORAGE_KEYS.DISPUTE_OVERRIDES, overrides)
-}
+}
+
+// ============================================================================
+// REGISTRY PARCEL MUTATIONS (Admin & GPS Audits)
+// ============================================================================
+
+export function addCachedParcel(parcel: Parcel): void {
+  const parcels = getCachedParcels()
+  parcels.push(parcel)
+  cacheParcels(parcels)
+}
+
+export function updateCachedParcel(parcel: Parcel): void {
+  const parcels = getCachedParcels()
+  const idx = parcels.findIndex(p => p.id === parcel.id)
+  if (idx !== -1) {
+    parcels[idx] = parcel
+  } else {
+    parcels.push(parcel)
+  }
+  cacheParcels(parcels)
+}
+
+export function deleteCachedParcel(id: string): void {
+  const parcels = getCachedParcels()
+  const filtered = parcels.filter(p => p.id !== id)
+  cacheParcels(filtered)
+}
+
+// ============================================================================
+// SYNC ACTIVITY LOGS (Admin Stats & CRDT Log Audits)
+// ============================================================================
+
+const SYNC_LOGS_KEY = 'giz-offline-sync-logs'
+
+export function getSyncLogs(): string[] {
+  return getFromStorage<string[]>(SYNC_LOGS_KEY, [
+    'System initialized. Demo databases seeded.',
+    'Offline cache populated with default land zoning definitions.',
+  ])
+}
+
+export function addSyncLog(message: string): void {
+  const logs = getSyncLogs()
+  const timestamp = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  logs.unshift(`[${timestamp}] ${message}`)
+  // Cap logs at 50 entries
+  setToStorage(SYNC_LOGS_KEY, logs.slice(0, 50))
+}
+
