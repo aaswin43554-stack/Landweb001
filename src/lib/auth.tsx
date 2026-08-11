@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { supabase, isSupabaseConfigured } from './supabaseClient'
 
 export type UserRole = 'citizen' | 'field-officer' | 'admin'
 
@@ -39,40 +40,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize session and registry (merging defaults to support cache migrations)
+  // Initialize session and registry (merging defaults & online database to support offline-first sync)
   useEffect(() => {
-    try {
-      const session = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (session) {
-        setUser(JSON.parse(session))
-      }
-      
-      const registryRaw = localStorage.getItem(REGISTERED_USERS_KEY)
-      let registry: Record<string, User> = { ...DEFAULT_REGISTRY }
-
-      if (registryRaw) {
-        try {
-          const parsed = JSON.parse(registryRaw)
-          registry = {
-            ...DEFAULT_REGISTRY,
-            ...parsed,
-          }
-          // Force defaults to have correct structure and properties
-          registry['demo-citizen'] = { ...DEFAULT_REGISTRY['demo-citizen'], ...registry['demo-citizen'] }
-          registry['demo-officer'] = { ...DEFAULT_REGISTRY['demo-officer'], ...registry['demo-officer'] }
-          registry['demo-admin'] = { ...DEFAULT_REGISTRY['demo-admin'], ...registry['demo-admin'] }
-        } catch {
-          // Fallback to default registry if parsing crashes
+    async function initializeAuth() {
+      try {
+        const session = localStorage.getItem(LOCAL_STORAGE_KEY)
+        if (session) {
+          setUser(JSON.parse(session))
         }
-      }
+        
+        // 1. Load local cache registry
+        const registryRaw = localStorage.getItem(REGISTERED_USERS_KEY)
+        let registry: Record<string, User> = { ...DEFAULT_REGISTRY }
 
-      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registry))
-      setRegisteredUsers(Object.values(registry))
-    } catch (err) {
-      console.warn('Failed to load auth session:', err)
-    } finally {
-      setIsLoading(false)
+        if (registryRaw) {
+          try {
+            const parsed = JSON.parse(registryRaw)
+            registry = {
+              ...DEFAULT_REGISTRY,
+              ...parsed,
+            }
+          } catch {
+            // Ignore parse errors, fallback to default
+          }
+        }
+
+        // 2. Fetch online profiles from Supabase if connected
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const { data: remoteProfiles, error } = await supabase
+              .from('profiles')
+              .select('*')
+
+            if (error) throw error
+
+            if (remoteProfiles && remoteProfiles.length > 0) {
+              remoteProfiles.forEach((profile: any) => {
+                registry[profile.id] = {
+                  id: profile.id,
+                  username: profile.username,
+                  role: profile.role as UserRole,
+                  biometricRegistered: profile.biometric_registered,
+                  credentialId: profile.credential_id || undefined,
+                  backupPin: profile.backup_pin,
+                }
+              })
+            }
+          } catch (dbErr) {
+            console.warn('Failed to sync user profiles from Supabase online db. Operating in offline cache mode:', dbErr)
+          }
+        }
+
+        // Force defaults to have correct structure and properties
+        registry['demo-citizen'] = { ...DEFAULT_REGISTRY['demo-citizen'], ...registry['demo-citizen'] }
+        registry['demo-officer'] = { ...DEFAULT_REGISTRY['demo-officer'], ...registry['demo-officer'] }
+        registry['demo-admin'] = { ...DEFAULT_REGISTRY['demo-admin'], ...registry['demo-admin'] }
+
+        localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(registry))
+        setRegisteredUsers(Object.values(registry))
+      } catch (err) {
+        console.warn('Failed to load auth session:', err)
+      } finally {
+        setIsLoading(false)
+      }
     }
+
+    initializeAuth()
   }, [])
 
   const getRegistry = (): Record<string, User> => {
@@ -137,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Register user credentials locally
+      // 2. Register user credentials locally (offline)
       const newUser: User = {
         id,
         username,
@@ -147,6 +180,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         backupPin,
       }
       saveUserToRegistry(newUser)
+
+      // 3. Upsert user record to Supabase profiles table if configured
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .upsert({
+              id,
+              username,
+              role,
+              biometric_registered: true,
+              credential_id: credentialId || null,
+              backup_pin: backupPin,
+            })
+
+          if (error) throw error
+        } catch (dbErr) {
+          console.warn('Failed to save profile to Supabase database. User is cached locally:', dbErr)
+        }
+      }
+
       return true
     } catch (err) {
       console.error('Passkey registration error:', err)
@@ -251,6 +305,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           backupPin: '1234',
         }
         saveUserToRegistry(matchedUser)
+
+        // Sync card registration to Supabase profiles online
+        if (isSupabaseConfigured && supabase) {
+          try {
+            await supabase
+              .from('profiles')
+              .upsert({
+                id: cardId,
+                username: cardName,
+                role: cardRole,
+                biometric_registered: false,
+                backup_pin: '1234',
+              })
+          } catch (dbErr) {
+            console.warn('Failed to sync new card profile to Supabase database. Account is cached locally:', dbErr)
+          }
+        }
       }
 
       setUser(matchedUser)
