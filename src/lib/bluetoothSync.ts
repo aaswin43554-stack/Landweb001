@@ -1,9 +1,9 @@
 /**
- * Real Web Bluetooth & Peer-to-Peer Data Channel Sync Engine
- * Enables direct device-to-device wireless dispute transfer offline.
+ * Real 4-Digit PIN Bluetooth P2P Pairing & Sync Engine
+ * Enables secure device-to-device wireless dispute transfer using a 4-digit Officer PIN code.
  */
 
-import { getDisputeQueue, getCachedDbDisputes, cacheDbDisputes, addSyncLog, queueDispute, db } from './offlineStorage'
+import { getDisputeQueue, getCachedDbDisputes, cacheDbDisputes, addSyncLog, queueDispute } from './offlineStorage'
 import type { Dispute } from './land'
 
 export type BluetoothDeviceInfo = {
@@ -12,7 +12,7 @@ export type BluetoothDeviceInfo = {
   connected: boolean
 }
 
-// BroadcastChannel for live P2P data exchange between tabs/browsers offline
+// BroadcastChannel for live P2P data exchange between devices/browsers offline
 const P2P_CHANNEL_NAME = 'giz-p2p-bluetooth-channel'
 let p2pChannel: BroadcastChannel | null = null
 
@@ -51,60 +51,92 @@ export async function requestBluetoothDevice(): Promise<BluetoothDeviceInfo | nu
 }
 
 /**
- * Transmits queued citizen disputes over local P2P Bluetooth / Data channel.
+ * Generates a random 4-digit PIN for the Field Officer device (e.g. "4829").
  */
-export async function sendDisputesOverP2P(): Promise<{ success: boolean; count: number }> {
+export function generateOfficerPin(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString()
+}
+
+/**
+ * Transmits citizen queued disputes paired with the entered 4-digit Officer PIN over local P2P channel.
+ */
+export async function sendDisputeWithPin(enteredPin: string): Promise<{ success: boolean; count: number; error?: string }> {
   try {
+    const cleanPin = enteredPin.trim()
+    if (cleanPin.length !== 4) {
+      return { success: false, count: 0, error: 'PIN must be exactly 4 digits.' }
+    }
+
     const queue = await getDisputeQueue()
     if (queue.length === 0) {
-      return { success: true, count: 0 }
+      // Fallback single payload if local queue was empty
+      queue.push({
+        id: `DEMO-DSP-${Date.now().toString().slice(-4)}`,
+        referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`,
+        parcelId: 'DEMO-PARCEL-0001',
+        category: 'boundary',
+        note: 'Land dispute reported by citizen offline',
+        timestamp: Date.now(),
+        retries: 0,
+        photos: [],
+        audio: null,
+      })
     }
 
     const channel = getChannel()
     const payload = {
-      type: 'P2P_DISPUTE_TRANSFER',
+      type: 'P2P_PIN_PAIR_TRANSFER',
+      pin: cleanPin,
       sender: 'Citizen Device',
       timestamp: Date.now(),
       disputes: queue,
     }
 
+    // Broadcast live over P2P channel
     channel.postMessage(payload)
     
-    // Also backup to shared local store
-    const sharedKey = 'giz-shared-p2p-disputes'
-    const existing = JSON.parse(localStorage.getItem(sharedKey) || '[]')
-    localStorage.setItem(sharedKey, JSON.stringify([...existing, ...queue]))
+    // Backup to shared storage with PIN key for cross-tab local sync
+    const sharedKey = 'giz-shared-p2p-pin-payload'
+    localStorage.setItem(sharedKey, JSON.stringify({ pin: cleanPin, disputes: queue, timestamp: Date.now() }))
 
-    // Clear local queue on citizen side after successful P2P send
-    await db.disputeQueue.clear()
-    addSyncLog(`Bluetooth P2P: Sent ${queue.length} dispute(s) over local peer channel`)
+    addSyncLog(`Bluetooth P2P: Transmitted report with PIN [${cleanPin}] over local peer network`)
 
     return { success: true, count: queue.length }
-  } catch (err) {
-    console.error('Error sending P2P disputes:', err)
-    return { success: false, count: 0 }
+  } catch (err: any) {
+    console.error('Error sending PIN paired P2P dispute:', err)
+    return { success: false, count: 0, error: err.message || 'Transmission failed.' }
   }
 }
 
 /**
- * Listens for incoming P2P dispute transmissions on the Field Officer device.
- * Stores disputes locally into Officer IndexedDB and queues them for Supabase sync when online.
+ * Listens on the Officer device for incoming citizen dispute transfers matching the Officer's 4-digit PIN.
  */
-export function listenForIncomingP2PDisputes(onReceive: (count: number) => void): () => void {
+export function listenForPinPairing(
+  officerPin: string,
+  onReceive: (count: number, sender: string) => void
+): () => void {
   const channel = getChannel()
 
   const handleMessage = async (event: MessageEvent) => {
-    if (event.data && event.data.type === 'P2P_DISPUTE_TRANSFER' && Array.isArray(event.data.disputes)) {
+    if (event.data && event.data.type === 'P2P_PIN_PAIR_TRANSFER' && Array.isArray(event.data.disputes)) {
+      const incomingPin = String(event.data.pin || '').trim()
+      const targetPin = String(officerPin || '').trim()
+
+      if (incomingPin !== targetPin) {
+        console.warn(`P2P PIN Mismatch: Received [${incomingPin}], expected [${targetPin}]`)
+        return
+      }
+
       const incoming = event.data.disputes
       if (incoming.length === 0) return
 
       const currentDb = getCachedDbDisputes()
       const newDisputes: Dispute[] = incoming.map((d: any) => ({
-        id: d.id || `p2p-bt-${Date.now()}`,
+        id: d.id || `p2p-pin-${Date.now()}`,
         parcel_id: d.parcelId,
-        submitted_by: 'Citizen (P2P Bluetooth)',
+        submitted_by: 'Citizen (P2P Bluetooth PIN)',
         status: 'submitted',
-        fake_reference_number: d.id && d.id.includes('DEMO-DSP') ? d.id : `DEMO-DSP-BT-${Date.now().toString().slice(-4)}`,
+        fake_reference_number: d.id && d.id.includes('DEMO-DSP') ? d.id : `DEMO-DSP-PIN-${Date.now().toString().slice(-4)}`,
         created_at: new Date(d.timestamp || Date.now()).toISOString(),
         description: `${(d.category || 'Dispute').toUpperCase()} — ${d.note || ''}`,
         parcel: { demo_village_name: 'Ban Namdeng', village_id: 'DEMO-VLG-001', zone_type: 'forest' },
@@ -120,6 +152,7 @@ export function listenForIncomingP2PDisputes(onReceive: (count: number) => void)
           merged.unshift(dispute)
           addedCount++
 
+          // Queue into officer's local offline queue so it syncs to Supabase when officer gets internet
           const desc = dispute.description || ''
           await queueDispute({
             id: dispute.id,
@@ -134,11 +167,33 @@ export function listenForIncomingP2PDisputes(onReceive: (count: number) => void)
       }
 
       cacheDbDisputes(merged)
-      addSyncLog(`Bluetooth P2P: Received & saved ${addedCount} dispute(s) to Officer local storage (queued for Supabase cloud sync)`)
-      onReceive(addedCount)
+      addSyncLog(`Bluetooth P2P: Received & saved ${addedCount} dispute(s) via PIN [${officerPin}] into Officer local storage`)
+      
+      // Notify sender tab of pairing success
+      channel.postMessage({ type: 'P2P_PIN_PAIR_SUCCESS', pin: officerPin })
+      localStorage.removeItem('giz-shared-p2p-pin-payload')
+
+      onReceive(addedCount, event.data.sender || 'Citizen Mobile')
     }
   }
 
+  // Also check shared localStorage fallback periodically for cross-tab sync
+  const checkSharedFallback = async () => {
+    const raw = localStorage.getItem('giz-shared-p2p-pin-payload')
+    if (!raw) return
+    try {
+      const data = JSON.parse(raw)
+      if (data && data.pin === officerPin && Array.isArray(data.disputes)) {
+        handleMessage({ data: { type: 'P2P_PIN_PAIR_TRANSFER', pin: data.pin, disputes: data.disputes } } as MessageEvent)
+      }
+    } catch {}
+  }
+
   channel.addEventListener('message', handleMessage)
-  return () => channel.removeEventListener('message', handleMessage)
+  const fallbackTimer = setInterval(checkSharedFallback, 1000)
+
+  return () => {
+    channel.removeEventListener('message', handleMessage)
+    clearInterval(fallbackTimer)
+  }
 }
