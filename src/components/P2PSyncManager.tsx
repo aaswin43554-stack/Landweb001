@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { importReceivedReport } from '../lib/bluetoothSync'
 import { buildSyncPayload, encodeCompact, generateVisualPin } from '../lib/syncPayload'
 import { getDisputeQueue } from '../lib/offlineStorage'
+import { supabase } from '../lib/supabaseClient'
 
 type Props = {
   role: 'citizen' | 'field-officer' | 'admin'
@@ -11,7 +12,11 @@ type Props = {
 
 type OfficerState = 'idle' | 'importing' | 'success' | 'error'
 
-/** Stores the compact code in localStorage keyed by the 6-char visual PIN */
+/**
+ * Builds the compact report code and stores it in two places:
+ * 1. localStorage — for same-device / same-browser testing
+ * 2. Supabase relay row — for cross-device pairing (citizen phone → officer phone)
+ */
 async function buildAndStorePin(): Promise<{ pin: string; compact: string }> {
   const queue = await getDisputeQueue()
   const latest = queue[0]
@@ -37,8 +42,31 @@ async function buildAndStorePin(): Promise<{ pin: string; compact: string }> {
   const compact = encodeCompact(payload)
   const pin = generateVisualPin(compact)
 
-  // Store in localStorage keyed by PIN so officer can retrieve on same device
+  // 1. localStorage — same device fallback
   localStorage.setItem(`giz-pin-${pin}`, compact)
+
+  // 2. Supabase relay — cross-device pairing
+  if (supabase) {
+    try {
+      // Clean up any old relay rows for this PIN first
+      await supabase
+        .from('disputes')
+        .delete()
+        .eq('submitted_by', `P2P-RELAY-${pin}`)
+
+      // Upload relay row: store compact code inside description field
+      await supabase.from('disputes').insert({
+        parcel_id: payload.parcelId || 'DEMO-PARCEL-0001',
+        submitted_by: `P2P-RELAY-${pin}`,
+        description: `P2P-CODE:${compact}`,
+        status: 'submitted',
+        fake_reference_number: `P2P-${pin}-${Date.now().toString().slice(-4)}`,
+      })
+    } catch (e) {
+      // Supabase upload failed (offline) — officer must paste the received text
+      console.warn('P2P Supabase relay upload failed (offline mode):', e)
+    }
+  }
 
   return { pin, compact }
 }
@@ -92,10 +120,38 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
     setOfficerState('importing')
     setErrorMsg('')
 
-    // Check localStorage first (same device / same browser test)
-    const stored = localStorage.getItem(`giz-pin-${cleanPin}`)
-    if (stored) {
-      const result = await importReceivedReport(stored)
+    let compactCode: string | null = null
+
+    // Step 1: Check localStorage (same device / same browser test)
+    compactCode = localStorage.getItem(`giz-pin-${cleanPin}`)
+
+    // Step 2: Check Supabase relay (cross-device — citizen on phone, officer on laptop/another phone)
+    if (!compactCode && supabase) {
+      try {
+        const { data } = await supabase
+          .from('disputes')
+          .select('description')
+          .eq('submitted_by', `P2P-RELAY-${cleanPin}`)
+          .limit(1)
+
+        if (data && data.length > 0) {
+          const desc: string = data[0].description ?? ''
+          if (desc.startsWith('P2P-CODE:')) {
+            compactCode = desc.replace('P2P-CODE:', '')
+            // Delete relay row so it can't be reused
+            await supabase
+              .from('disputes')
+              .delete()
+              .eq('submitted_by', `P2P-RELAY-${cleanPin}`)
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase PIN relay lookup failed:', e)
+      }
+    }
+
+    if (compactCode) {
+      const result = await importReceivedReport(compactCode)
       if (result.success) {
         setImportedRef(result.referenceNumber)
         setImportedNote(result.note)
@@ -110,7 +166,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
     }
 
     setOfficerState('error')
-    setErrorMsg(`PIN [${cleanPin}] not found. Ask the citizen to tap "Share Report" first, then try again — or paste the received text below.`)
+    setErrorMsg(`PIN [${cleanPin}] not found on this device or server. Make sure the citizen tapped "Share Report" first, then try again. If offline, ask the citizen to send the text via Bluetooth and paste it below.`)
   }
 
   async function handleOfficerImportByPaste() {
