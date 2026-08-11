@@ -3,7 +3,7 @@
  * Enables direct device-to-device wireless dispute transfer offline.
  */
 
-import { getDisputeQueue, getCachedDbDisputes, cacheDbDisputes, addSyncLog, db } from './offlineStorage'
+import { getDisputeQueue, getCachedDbDisputes, cacheDbDisputes, addSyncLog, queueDispute, db } from './offlineStorage'
 import type { Dispute } from './land'
 
 export type BluetoothDeviceInfo = {
@@ -75,7 +75,7 @@ export async function sendDisputesOverP2P(): Promise<{ success: boolean; count: 
     const existing = JSON.parse(localStorage.getItem(sharedKey) || '[]')
     localStorage.setItem(sharedKey, JSON.stringify([...existing, ...queue]))
 
-    // Clear queue after transmission
+    // Clear local queue on citizen side after successful P2P send
     await db.disputeQueue.clear()
     addSyncLog(`Bluetooth P2P: Sent ${queue.length} dispute(s) over local peer channel`)
 
@@ -88,11 +88,12 @@ export async function sendDisputesOverP2P(): Promise<{ success: boolean; count: 
 
 /**
  * Listens for incoming P2P dispute transmissions on the Field Officer device.
+ * Stores disputes locally into Officer IndexedDB and queues them for Supabase sync when online.
  */
 export function listenForIncomingP2PDisputes(onReceive: (count: number) => void): () => void {
   const channel = getChannel()
 
-  const handleMessage = (event: MessageEvent) => {
+  const handleMessage = async (event: MessageEvent) => {
     if (event.data && event.data.type === 'P2P_DISPUTE_TRANSFER' && Array.isArray(event.data.disputes)) {
       const incoming = event.data.disputes
       if (incoming.length === 0) return
@@ -111,18 +112,29 @@ export function listenForIncomingP2PDisputes(onReceive: (count: number) => void)
         audio: d.audio || null,
       }))
 
-      // Merge avoiding duplicates
+      // Merge into officer cached database avoiding duplicates
       const merged = [...currentDb]
       let addedCount = 0
       for (const dispute of newDisputes) {
         if (!merged.some(existing => existing.id === dispute.id || existing.fake_reference_number === dispute.fake_reference_number)) {
           merged.unshift(dispute)
           addedCount++
+
+          const desc = dispute.description || ''
+          await queueDispute({
+            id: dispute.id,
+            referenceNumber: dispute.fake_reference_number,
+            parcelId: dispute.parcel_id,
+            category: desc.split(' — ')[0].toLowerCase(),
+            note: desc,
+            photos: dispute.photos,
+            audio: dispute.audio,
+          })
         }
       }
 
       cacheDbDisputes(merged)
-      addSyncLog(`Bluetooth P2P: Received & saved ${addedCount} dispute(s) to Officer local storage`)
+      addSyncLog(`Bluetooth P2P: Received & saved ${addedCount} dispute(s) to Officer local storage (queued for Supabase cloud sync)`)
       onReceive(addedCount)
     }
   }
