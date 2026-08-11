@@ -76,6 +76,15 @@ class LandDatabase extends Dexie {
 
 export const db = new LandDatabase()
 
+// Request persistent device storage to prevent OS eviction when offline
+if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then((persistent) => {
+    if (persistent) {
+      console.log('IndexedDB device storage is permanently locked for offline use.')
+    }
+  }).catch(() => {})
+}
+
 const CACHE_VERSION = 4
 
 // ============================================================================

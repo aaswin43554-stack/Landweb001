@@ -229,8 +229,8 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
         <div className="w-full text-center px-4">
           {syncState === 'searching' && (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-slate-600">Searching for nearby devices...</p>
-              <p className="text-xs text-slate-400">Using WebRTC local mesh radio</p>
+              <p className="text-sm font-semibold text-slate-600">Searching for nearby Field Officer Bluetooth devices...</p>
+              <p className="text-xs text-slate-400">Scanning Bluetooth Low Energy & Local WebRTC Mesh</p>
             </div>
           )}
 

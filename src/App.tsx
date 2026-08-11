@@ -108,7 +108,9 @@ function AppContent() {
         {view.mode === 'field-officer' && <FieldOfficerScreen />}
         {view.mode === 'citizen' && view.screen === 'parcel-lookup' && <ParcelLookupScreen />}
         {view.mode === 'citizen' && view.screen === 'land-use-explainer' && <LandUseExplainerScreen />}
-        {view.mode === 'citizen' && view.screen === 'dispute-form' && <DisputeFormScreen />}
+        {view.mode === 'citizen' && view.screen === 'dispute-form' && (
+          <DisputeFormScreen onTriggerP2PSync={() => setShowP2PSync(true)} />
+        )}
         {view.mode === 'citizen' && view.screen === 'case-status' && <CaseStatusScreen />}
       </main>
 

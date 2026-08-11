@@ -1,11 +1,16 @@
 // Service Worker for GIZ Land Use Transparency Prototype
 // Provides offline-first caching for static assets and API responses
 
-const CACHE_NAME = 'giz-land-prototype-v1'
+const CACHE_NAME = 'giz-land-prototype-v2'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/manifest.json',
   '/favicon.svg',
+  '/icons.svg',
+  '/fonts/noto-sans-lao-regular.woff2',
+  '/fonts/noto-sans-lao-600.woff2',
+  '/fonts/noto-sans-lao-700.woff2',
 ]
 
 // Install event - cache static assets

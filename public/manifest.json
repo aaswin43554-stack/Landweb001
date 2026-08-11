@@ -1,0 +1,18 @@
+{
+  "short_name": "LandWeb",
+  "name": "Land Use Transparency Prototype",
+  "description": "Citizen & Field Officer Land Use Transparency App (Laos)",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512 192x192 96x96 48x48",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#059669",
+  "theme_color": "#059669",
+  "display": "standalone",
+  "orientation": "portrait"
+}

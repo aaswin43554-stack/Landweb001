@@ -167,7 +167,11 @@ function initialState() {
   }
 }
 
-export function DisputeFormScreen() {
+type DisputeFormScreenProps = {
+  onTriggerP2PSync?: () => void
+}
+
+export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps = {}) {
   const { t, language } = useTranslations()
   const [villages, setVillages] = useState<Village[]>([])
   const [state, setState] = useState(initialState)
@@ -456,6 +460,19 @@ export function DisputeFormScreen() {
             Copy Sync Code (Clipboard)
           </button>
         </div>
+
+        {/* P2P Bluetooth Direct Send Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onTriggerP2PSync) {
+              onTriggerP2PSync()
+            }
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm shadow-md transition-all cursor-pointer border border-blue-500"
+        >
+          <span>📶</span> Send to Officer via P2P Bluetooth
+        </button>
 
         <button
           type="button"
