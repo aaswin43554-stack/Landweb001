@@ -81,61 +81,60 @@ export function downloadReportFile(pkg: ReportPackage): void {
  *
  * Guarantees that the OS QuickShare / Bluetooth share panel opens on all mobile devices!
  */
+/**
+ * Shares the FULL report via native QuickShare / Bluetooth / AirDrop share tray AND downloads file in ONE click.
+ * Includes photos and audio. Works 100% offline.
+ */
 export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
+  // 1. Download file directly to phone so user has the .giz.json file saved on their device
+  downloadReportFile(pkg)
+
   const json = JSON.stringify(pkg)
-  
-  const fileJson = new File([json], `giz-report-${pkg.referenceNumber}.json`, { type: 'application/json' })
+  const fileJson = new File([json], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'application/json' })
   const fileTxt = new File([json], `giz-report-${pkg.referenceNumber}.txt`, { type: 'text/plain' })
 
+  // 2. Immediately open native QuickShare / Bluetooth OS share tray
   if (typeof navigator !== 'undefined' && navigator.share) {
-    // 1. Try native file share with .json extension first
     if (navigator.canShare && navigator.canShare({ files: [fileJson] })) {
       try {
         await navigator.share({
           title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `GIZ Report ${pkg.referenceNumber} (${pkg.photos.length} photos). Select QuickShare or Bluetooth to send.`,
+          text: `GIZ Report ${pkg.referenceNumber}`,
           files: [fileJson],
         })
-        addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.json via native share tray`)
+        addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.giz.json via native share tray`)
         return 'shared'
       } catch (err: any) {
         if (err.name === 'AbortError') return 'cancelled'
-        console.warn('.json file share cancelled or failed:', err)
       }
     }
 
-    // 2. Try native file share with .txt extension second (allowed by all mobile browsers)
     if (navigator.canShare && navigator.canShare({ files: [fileTxt] })) {
       try {
         await navigator.share({
           title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `GIZ Report ${pkg.referenceNumber} (${pkg.photos.length} photos). Select QuickShare or Bluetooth to send.`,
+          text: `GIZ Report ${pkg.referenceNumber}`,
           files: [fileTxt],
         })
         addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.txt via native share tray`)
         return 'shared'
       } catch (err: any) {
         if (err.name === 'AbortError') return 'cancelled'
-        console.warn('.txt file share cancelled or failed:', err)
       }
     }
 
-    // 3. Fallback: Native text share (GUARANTEED to open Android QuickShare / Bluetooth tray on 100% of mobile devices!)
     try {
       await navigator.share({
         title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
         text: `[GIZ-REPORT-FULL]\n${json}`,
       })
-      addSyncLog(`P2P Share: Shared report content via native QuickShare / Bluetooth text share`)
+      addSyncLog(`P2P Share: Shared report content via native text share`)
       return 'shared'
     } catch (err: any) {
       if (err.name === 'AbortError') return 'cancelled'
-      console.warn('Native text share error:', err)
     }
   }
 
-  // 4. Desktop / non-mobile fallback: Download file directly
-  downloadReportFile(pkg)
   return 'downloaded'
 }
 
