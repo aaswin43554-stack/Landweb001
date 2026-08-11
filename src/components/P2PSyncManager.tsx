@@ -348,7 +348,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                         <p className="text-xs text-emerald-700 font-semibold">
                           Citizen sends the file via Bluetooth/AirDrop/QuickShare to this device. Once received, tap "Select File" below to import — <strong>includes all photos and audio files!</strong>
                         </p>
-                        <input ref={fileInputRef} type="file" accept=".json,.giz.json" onChange={handleOfficerFileImport}
+                        <input ref={fileInputRef} type="file" accept=".json,.giz.json,.txt,text/plain,application/json" onChange={handleOfficerFileImport}
                           className="hidden" id="giz-file-import" />
                         <label htmlFor="giz-file-import"
                           className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98">

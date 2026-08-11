@@ -78,8 +78,8 @@ export function downloadReportFile(pkg: ReportPackage): void {
 export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
   const json = JSON.stringify(pkg)
   
-  // Use text/plain file so Android Chrome & iOS Safari navigator.canShare({ files }) returns TRUE
-  const file = new File([json], `giz-report-${pkg.referenceNumber}.txt`, { type: 'text/plain' })
+  // Use .giz.json extension with text/plain MIME type so OS transfers it as a .giz.json file and browsers permit sharing
+  const file = new File([json], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'text/plain' })
 
   if (typeof navigator !== 'undefined' && navigator.share) {
     // 1. Primary: Try native file sharing via QuickShare / Bluetooth / AirDrop
