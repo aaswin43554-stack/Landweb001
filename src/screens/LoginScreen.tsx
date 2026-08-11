@@ -53,9 +53,12 @@ export function LoginScreen() {
     setEnteredPin('')
     setPinError(false)
     setScanSuccess(false)
+
+    const targetUser = registeredUsers.find(u => u.id === selectedUserId)
+    const hasCredential = Boolean(targetUser?.credentialId)
     
-    if (hasBiometricHardware) {
-      // 1. Device has biometric hardware (Fingerprint/TouchID): Trigger native browser scanner
+    if (hasBiometricHardware && hasCredential) {
+      // 1. Device has biometric hardware AND user has a passkey: Trigger native browser scanner
       setIsScanning(true)
       await new Promise((resolve) => setTimeout(resolve, 1500))
       
@@ -68,7 +71,7 @@ export function LoginScreen() {
       }
       setIsScanning(false)
     } else {
-      // 2. Device lacks biometrics (Laptop / Desktop): Open interactive Backup PIN input modal
+      // 2. Device lacks biometrics OR user has no registered passkey: Open interactive Backup PIN input modal
       setIsScanning(true)
     }
   };
