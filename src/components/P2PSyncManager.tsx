@@ -5,6 +5,7 @@ import {
   broadcastDisputeWithPin,
   verifyAndImportDispute,
 } from '../lib/bluetoothSync'
+import { supabase } from '../lib/supabaseClient'
 
 type Props = {
   role: 'citizen' | 'field-officer' | 'admin'
@@ -54,17 +55,40 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
 
     channel.addEventListener('message', handleSuccess)
     
-    // Fallback local check: Check if officer cleared citizen's payload in localStorage
-    const interval = setInterval(() => {
+    // Check if officer consumed payload (works for both local-storage and Supabase cross-device)
+    const checkRelayConsumed = async () => {
+      if (syncState !== 'pin_display') return
+
+      // Local storage check fallback (same device)
       const payloadKey = `giz-p2p-pin-payload-${citizenPin}`
-      if (!localStorage.getItem(payloadKey) && syncState === 'pin_display') {
-        // Success payload was consumed by officer in same browser
+      if (!localStorage.getItem(payloadKey)) {
         setSyncState('transferring')
         setProgress(100)
         setSyncState('complete')
         if (onSyncSuccess) onSyncSuccess()
+        return
       }
-    }, 1000)
+
+      // Supabase network check fallback (cross-device physical phone/laptop sync)
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('disputes')
+            .select('id')
+            .eq('submitted_by', `P2P-PIN-${citizenPin}`)
+          
+          // If the relay row is gone, it means the officer has successfully imported it!
+          if (data && data.length === 0) {
+            setSyncState('transferring')
+            setProgress(100)
+            setSyncState('complete')
+            if (onSyncSuccess) onSyncSuccess()
+          }
+        } catch {}
+      }
+    }
+
+    const interval = setInterval(checkRelayConsumed, 1500)
 
     return () => {
       channel.removeEventListener('message', handleSuccess)

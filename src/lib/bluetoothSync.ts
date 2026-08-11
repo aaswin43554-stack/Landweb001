@@ -1,11 +1,12 @@
 /**
  * Real 4-Digit PIN Bluetooth P2P Pairing & Sync Engine
- * Enables secure device-to-device wireless dispute transfer using a 4-digit Citizen PIN code
- * verified on the Field Officer's screen.
+ * Enables secure device-to-device wireless dispute transfer using a 4-digit Citizen PIN code.
+ * Supports cross-device synchronization via network relay (Supabase) and local BroadcastChannel.
  */
 
 import { getDisputeQueue, getCachedDbDisputes, cacheDbDisputes, addSyncLog, queueDispute } from './offlineStorage'
 import type { Dispute } from './land'
+import { supabase } from './supabaseClient'
 
 export type BluetoothDeviceInfo = {
   id: string
@@ -60,6 +61,7 @@ export function generateCitizenPin(): string {
 
 /**
  * Citizen broadcasts dispute payload tagged with their generated 4-digit PIN code.
+ * Uploads to Supabase relay table if online so another physical device can fetch it.
  */
 export async function broadcastDisputeWithPin(citizenPin: string): Promise<{ success: boolean; count: number }> {
   try {
@@ -90,12 +92,27 @@ export async function broadcastDisputeWithPin(citizenPin: string): Promise<{ suc
       disputes: queue,
     }
 
-    // Broadcast live over local mesh channel
+    // 1. Broadcast live over local browser channel
     channel.postMessage(payload)
     
-    // Backup to shared storage with PIN key for cross-tab local sync
+    // 2. Backup to shared local storage for same-device cross-tab sync
     const sharedKey = `giz-p2p-pin-payload-${cleanPin}`
     localStorage.setItem(sharedKey, JSON.stringify({ disputes: queue, timestamp: Date.now() }))
+
+    // 3. Upload to Supabase disputes table as a relay row if connected
+    if (supabase) {
+      // Clear old relay rows for this PIN
+      await supabase.from('disputes').delete().eq('submitted_by', `P2P-PIN-${cleanPin}`)
+      
+      // Insert dispute payload encoded inside description field
+      await supabase.from('disputes').insert({
+        parcel_id: queue[0]?.parcelId || 'DEMO-PARCEL-0001',
+        submitted_by: `P2P-PIN-${cleanPin}`,
+        description: `JSON:${JSON.stringify(queue)}`,
+        status: 'submitted',
+        fake_reference_number: `DEMO-RELAY-${cleanPin}-${Date.now().toString().slice(-4)}`
+      })
+    }
 
     addSyncLog(`Bluetooth P2P: Citizen broadcasting dispute report with PIN [${cleanPin}]`)
 
@@ -108,6 +125,7 @@ export async function broadcastDisputeWithPin(citizenPin: string): Promise<{ suc
 
 /**
  * Officer verifies citizen's PIN and imports their dispute report into local Officer database.
+ * Checks local storage first, then falls back to Supabase database relay for cross-device pairing.
  */
 export async function verifyAndImportDispute(
   enteredPin: string,
@@ -119,19 +137,55 @@ export async function verifyAndImportDispute(
       return { success: false, count: 0, error: 'PIN must be exactly 4 digits.' }
     }
 
-    // Read payload from local storage sync pipe
-    const sharedKey = `giz-p2p-pin-payload-${cleanPin}`
-    const raw = localStorage.getItem(sharedKey)
-    if (!raw) {
-      return { success: false, count: 0, error: `No active citizen device found broadcasting PIN [${cleanPin}]. Make sure the citizen clicked "Send to Officer via P2P Bluetooth".` }
+    let incoming: any[] = []
+
+    // Step A: Check local storage (same device / same browser tab testing)
+    const localSharedKey = `giz-p2p-pin-payload-${cleanPin}`
+    const rawLocal = localStorage.getItem(localSharedKey)
+    
+    if (rawLocal) {
+      try {
+        const parsed = JSON.parse(rawLocal)
+        if (parsed && Array.isArray(parsed.disputes)) {
+          incoming = parsed.disputes
+          localStorage.removeItem(localSharedKey)
+        }
+      } catch {}
     }
 
-    const data = JSON.parse(raw)
-    if (!data || !Array.isArray(data.disputes)) {
-      return { success: false, count: 0, error: 'Invalid dispute payload structure.' }
+    // Step B: Check Supabase database relay (different physical device testing)
+    if (incoming.length === 0 && supabase) {
+      const { data, error } = await supabase
+        .from('disputes')
+        .select('*')
+        .eq('submitted_by', `P2P-PIN-${cleanPin}`)
+
+      if (error) {
+        console.warn('Supabase query error during P2P pin verify:', error.message)
+      }
+
+      if (data && data.length > 0) {
+        const relayRow = data[0]
+        const desc = relayRow.description || ''
+        if (desc.startsWith('JSON:')) {
+          try {
+            incoming = JSON.parse(desc.substring(5))
+            // Delete the consumed relay row from Supabase
+            await supabase.from('disputes').delete().eq('id', relayRow.id)
+          } catch {}
+        }
+      }
     }
 
-    const incoming = data.disputes
+    // If no dispute payload found in either local or remote relay
+    if (incoming.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        error: `No active citizen device found broadcasting PIN [${cleanPin}]. Make sure the citizen clicked "Send to Officer via P2P Bluetooth" first.`
+      }
+    }
+
     const currentDb = getCachedDbDisputes()
     const newDisputes: Dispute[] = incoming.map((d: any) => ({
       id: d.id || `p2p-pin-${Date.now()}`,
@@ -174,7 +228,6 @@ export async function verifyAndImportDispute(
     // Broadcast success confirmation message back to citizen device
     const channel = getChannel()
     channel.postMessage({ type: 'P2P_PIN_PAIR_SUCCESS', pin: cleanPin })
-    localStorage.removeItem(sharedKey)
 
     onSuccess(addedCount)
     return { success: true, count: addedCount }
