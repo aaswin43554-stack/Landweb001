@@ -464,9 +464,27 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
         {/* P2P Bluetooth Direct Send Button */}
         <button
           type="button"
-          onClick={() => {
-            if (onTriggerP2PSync) {
-              onTriggerP2PSync()
+          onClick={async () => {
+            const syncCode = buildCurrentSyncCode()
+            
+            // Trigger native mobile share tray (supporting QuickShare, Bluetooth, AirDrop) offline
+            if (navigator.share) {
+              try {
+                await navigator.share({
+                  title: 'GIZ Land Dispute Report',
+                  text: syncCode,
+                })
+              } catch (err: any) {
+                // If sharing was aborted/cancelled, don't show error, otherwise fall back to modal
+                if (err.name !== 'AbortError' && onTriggerP2PSync) {
+                  onTriggerP2PSync()
+                }
+              }
+            } else {
+              // Desktop fallback to modal
+              if (onTriggerP2PSync) {
+                onTriggerP2PSync()
+              }
             }
           }}
           className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm shadow-md transition-all cursor-pointer border border-blue-500"
