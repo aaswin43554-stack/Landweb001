@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useAuth, type UserRole } from '../lib/auth'
+import { useTranslations } from '../lib/translations'
 import { QrScanner } from '../components/QrScanner'
 import { QrIcon } from '../components/icons'
 
 export function LoginScreen() {
   const { loginWithPasskey, registerPasskey, loginWithQR, registeredUsers } = useAuth()
+  const { t } = useTranslations()
   
   const [tab, setTab] = useState<'passkey' | 'qr'>('passkey')
   const [selectedUserId, setSelectedUserId] = useState('demo-citizen')
@@ -160,8 +162,8 @@ export function LoginScreen() {
       <div className="w-full max-w-md bg-white rounded-3xl border-2 border-gray-200 p-6 shadow-md transition-all">
         {/* Brand / Title */}
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">GIZ Land Info System</h2>
-          <p className="text-xs text-gray-500 mt-1">Official Secure Access Portal</p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('login.title')}</h2>
+          <p className="text-xs text-gray-500 mt-1">{t('login.subtitle')}</p>
         </div>
 
         {/* Tab Selection */}
@@ -173,7 +175,7 @@ export function LoginScreen() {
               tab === 'passkey' ? 'bg-white text-emerald-800 shadow-xs' : 'text-gray-500'
             }`}
           >
-            🎙️ Biometric Passkey
+            {t('login.tab_passkey')}
           </button>
           <button
             type="button"
@@ -182,7 +184,7 @@ export function LoginScreen() {
               tab === 'qr' ? 'bg-white text-emerald-800 shadow-xs' : 'text-gray-500'
             }`}
           >
-            🪪 QR Card Login
+            {t('login.tab_qr')}
           </button>
         </div>
 
@@ -190,13 +192,13 @@ export function LoginScreen() {
         {tab === 'passkey' && !showRegister && (
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-600">
-              Select your profile and choose how you want to log in.
+              {t('login.select_profile_hint')}
             </p>
 
             {/* Profile Dropdown Selector */}
             <div className="w-full flex flex-col gap-1.5 text-left bg-gray-50 border border-gray-200 rounded-xl p-3">
               <label htmlFor="biometric-user-select" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Select Biometric Account
+                {t('login.select_account_label')}
               </label>
               <select
                 id="biometric-user-select"
@@ -208,7 +210,7 @@ export function LoginScreen() {
                   .filter((u) => u.biometricRegistered)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.username} ({u.role === 'field-officer' ? 'Officer' : u.role === 'admin' ? 'Admin' : 'Citizen'})
+                      {u.username} ({u.role === 'field-officer' ? t('nav.field_officer') : u.role === 'admin' ? 'Admin' : t('app.title')})
                     </option>
                   ))}
               </select>
@@ -226,7 +228,7 @@ export function LoginScreen() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 </svg>
-                <span>Log In with Fingerprint / Passkey</span>
+                <span>{t('login.btn_fingerprint')}</span>
               </button>
 
               <button
@@ -235,7 +237,7 @@ export function LoginScreen() {
                 disabled={isProcessing}
                 className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-sm border border-slate-200 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
-                <span>🔢 Log In with 4-Digit Backup PIN</span>
+                <span>{t('login.btn_pin')}</span>
               </button>
             </div>
 
@@ -245,7 +247,7 @@ export function LoginScreen() {
                 onClick={() => setShowRegister(true)}
                 className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
               >
-                Register new biometric device credentials ➔
+                {t('login.register_link')}
               </button>
             </div>
           </div>
@@ -254,7 +256,7 @@ export function LoginScreen() {
         {/* TAB 1: PASSKEY REGISTRATION ON-BOARDING */}
         {tab === 'passkey' && showRegister && (
           <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-4">
-            <h3 className="font-bold text-slate-800 text-sm">Onboard Biometrics / Passkey</h3>
+            <h3 className="font-bold text-slate-800 text-sm">{t('login.onboard_title')}</h3>
             
             <div className="flex flex-col gap-1.5">
               <label htmlFor="reg-id" className="text-xs font-semibold text-gray-600">
@@ -329,7 +331,7 @@ export function LoginScreen() {
                 onClick={() => setShowRegister(false)}
                 className="px-4 rounded-xl border-2 border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {t('explainer.panel.close')}
               </button>
             </div>
           </form>
@@ -339,7 +341,7 @@ export function LoginScreen() {
         {tab === 'qr' && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-gray-600 text-center">
-              Scan your physical GIZ Citizen Identity Card QR code using your device camera, or input it manually below.
+              {t('login.qr_hint')}
             </p>
 
             <button
@@ -348,12 +350,12 @@ export function LoginScreen() {
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 text-white py-3 text-sm font-bold active:bg-slate-900 shadow-sm cursor-pointer"
             >
               <QrIcon className="w-5 h-5" />
-              <span>Open Scanner Camera</span>
+              <span>{t('login.open_camera')}</span>
             </button>
 
             <div className="flex items-center my-1">
               <span className="flex-1 border-t border-gray-200"></span>
-              <span className="text-[10px] font-bold text-gray-400 px-3 uppercase">or type credentials ID</span>
+              <span className="text-[10px] font-bold text-gray-400 px-3 uppercase">{t('login.or_type_id')}</span>
               <span className="flex-1 border-t border-gray-200"></span>
             </div>
 
@@ -370,7 +372,7 @@ export function LoginScreen() {
                 disabled={!qrCodeInput.trim() || isProcessing}
                 className="px-4 rounded-xl bg-emerald-700 text-white font-bold text-xs active:bg-emerald-800 disabled:bg-gray-300"
               >
-                Submit
+                {t('login.submit')}
               </button>
             </div>
 
@@ -421,7 +423,7 @@ export function LoginScreen() {
                   ? 'Verification Successful' 
                   : modalMode === 'fingerprint' 
                     ? 'Scanning Fingerprint' 
-                    : 'Enter 4-Digit Backup PIN'
+                    : t('login.verify_pin_title')
                 }
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -429,7 +431,7 @@ export function LoginScreen() {
                   ? 'Access granted. Welcome back!' 
                   : modalMode === 'fingerprint' 
                     ? 'Place your finger on your device\'s fingerprint sensor.' 
-                    : 'Enter your 4-digit backup PIN (default: 1234 / 1010).'
+                    : t('login.verify_pin_hint')
                 }
               </p>
             </div>
@@ -528,7 +530,7 @@ export function LoginScreen() {
                     onClick={() => { setModalMode('pin'); setEnteredPin(''); setPinError(false); }}
                     className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer py-1"
                   >
-                    🔢 Use 4-Digit Backup PIN Instead ➔
+                    {t('login.switch_to_pin')}
                   </button>
                 ) : (
                   <button
@@ -536,7 +538,7 @@ export function LoginScreen() {
                     onClick={() => { setModalMode('fingerprint'); handleOpenFingerprintLogin(); }}
                     className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer py-1"
                   >
-                    🎙️ Use Fingerprint Scan Instead ➔
+                    {t('login.switch_to_fingerprint')}
                   </button>
                 )}
 
@@ -545,7 +547,7 @@ export function LoginScreen() {
                   onClick={() => setIsScanning(false)}
                   className="text-xs text-gray-400 hover:text-gray-600 font-semibold cursor-pointer"
                 >
-                  Close Modal
+                  {t('login.close_modal')}
                 </button>
               </div>
             )}
