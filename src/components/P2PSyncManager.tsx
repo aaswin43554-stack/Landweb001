@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
-  getDisputeQueue,
   getCachedDbDisputes,
   cacheDbDisputes,
   addSyncLog,
-  db
 } from '../lib/offlineStorage'
 import type { Dispute } from '../lib/land'
 import {
   requestBluetoothDevice,
   sendDisputesOverP2P,
   listenForIncomingP2PDisputes,
-  type BluetoothDeviceInfo
 } from '../lib/bluetoothSync'
 
 type Props = {
@@ -27,7 +24,6 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
   const [targetDevice, setTargetDevice] = useState('')
   const [progress, setProgress] = useState(0)
   const [itemCount, setItemCount] = useState(0)
-  const [btDevice, setBtDevice] = useState<BluetoothDeviceInfo | null>(null)
   const [isScanningBt, setIsScanningBt] = useState(false)
 
   // Listen for live P2P Broadcast Channel transmissions on Officer device
@@ -48,7 +44,6 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
     const device = await requestBluetoothDevice()
     setIsScanningBt(false)
     if (device) {
-      setBtDevice(device)
       setTargetDevice(device.name)
       setSyncState('connected')
     }
