@@ -72,7 +72,11 @@ function formatDate(iso: string): string {
   }
 }
 
-export function FieldOfficerScreen() {
+type FieldOfficerScreenProps = {
+  onTriggerP2PSync?: () => void
+}
+
+export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps = {}) {
   const { t } = useTranslations()
   const [disputes, setDisputes] = useState<Dispute[]>([])
   const [villages, setVillages] = useState<Village[]>([])
@@ -261,10 +265,16 @@ export function FieldOfficerScreen() {
             </button>
             <button
               type="button"
-              onClick={() => setShowImportPanel(!showImportPanel)}
+              onClick={() => {
+                if (onTriggerP2PSync) {
+                  onTriggerP2PSync()
+                } else {
+                  setShowImportPanel(!showImportPanel)
+                }
+              }}
               className="flex items-center gap-1 bg-emerald-700 text-white border-2 border-emerald-600 px-3 py-1.5 rounded-xl font-bold text-xs hover:bg-emerald-800 transition-all cursor-pointer shadow-sm"
             >
-              📥 Import P2P Sync
+              📥 Import P2P Sync (Bluetooth PIN)
             </button>
           </div>
         </div>
@@ -287,8 +297,19 @@ export function FieldOfficerScreen() {
             </div>
             
             <p className="text-xs text-slate-500">
-              Paste the Base64 sync code from the citizen's device below, or simulate camera scanning.
+              Paste the Base64 sync code from the citizen's device below, or switch to 4-Digit Bluetooth PIN Receiver mode.
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowImportPanel(false)
+                if (onTriggerP2PSync) onTriggerP2PSync()
+              }}
+              className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              📶 Open 4-Digit Bluetooth PIN Receiver Card
+            </button>
 
             <textarea
               value={p2pCodeInput}

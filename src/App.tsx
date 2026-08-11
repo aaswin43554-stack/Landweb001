@@ -105,7 +105,9 @@ function AppContent() {
 
       <main className="flex-1 flex flex-col">
         {view.mode === 'admin' && <AdminDashboardScreen />}
-        {view.mode === 'field-officer' && <FieldOfficerScreen />}
+        {view.mode === 'field-officer' && (
+          <FieldOfficerScreen onTriggerP2PSync={() => setShowP2PSync(true)} />
+        )}
         {view.mode === 'citizen' && view.screen === 'parcel-lookup' && <ParcelLookupScreen />}
         {view.mode === 'citizen' && view.screen === 'land-use-explainer' && <LandUseExplainerScreen />}
         {view.mode === 'citizen' && view.screen === 'dispute-form' && (
