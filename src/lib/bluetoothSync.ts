@@ -15,7 +15,7 @@
  */
 
 import { queueDispute, addSyncLog, getCachedDbDisputes, cacheDbDisputes, getDisputeQueue } from './offlineStorage'
-import { parseSyncPayload, encodeCompact, buildSyncPayload } from './syncPayload'
+import { parseSyncPayload } from './syncPayload'
 import type { Dispute } from './land'
 
 // ─── FULL REPORT PACKAGE (includes photos + audio) ──────────────────────────
@@ -52,56 +52,56 @@ export async function buildReportPackage(): Promise<ReportPackage | null> {
 }
 
 /**
+ * Triggers a browser file download for the full report package (.giz.json).
+ * Used on desktop or browsers that don't support navigator.share({ files }).
+ */
+export function downloadReportFile(pkg: ReportPackage): void {
+  const json = JSON.stringify(pkg)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `giz-report-${pkg.referenceNumber}.giz.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  addSyncLog(`P2P Share: Downloaded full report ${pkg.referenceNumber} file (.giz.json)`)
+}
+
+/**
  * Shares the FULL report as a real file via the phone's native share tray.
  * Includes photos and audio. Works 100% offline via Bluetooth / AirDrop / QuickShare.
+ * Fallback to file download if native share is not supported by browser.
  *
  * Officer receives a .giz.json file — they open the app and import it.
  */
-export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'unsupported'> {
+export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
   const json = JSON.stringify(pkg)
   const blob = new Blob([json], { type: 'application/json' })
   const file = new File([blob], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'application/json' })
 
-  // Try file sharing (supported on Android Chrome, iOS Safari 15.1+)
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-        text: `Land dispute report with ${pkg.photos.length} photo(s). Open GIZ app to import.`,
-        files: [file],
-      })
-      addSyncLog(`P2P Share: Citizen shared full report ${pkg.referenceNumber} (${pkg.photos.length} photos, audio: ${!!pkg.audio}) via native file share`)
-      return 'shared'
-    } catch (err: any) {
-      if (err.name === 'AbortError') return 'cancelled'
-      // Fall through to text-only share
+  // 1. Try native file sharing (supported on Android Chrome, iOS Safari 15.1+)
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
+          text: `Land dispute report with ${pkg.photos.length} photo(s). Open GIZ app to import.`,
+          files: [file],
+        })
+        addSyncLog(`P2P Share: Citizen shared full report ${pkg.referenceNumber} (${pkg.photos.length} photos, audio: ${!!pkg.audio}) via native file share`)
+        return 'shared'
+      } catch (err: any) {
+        if (err.name === 'AbortError') return 'cancelled'
+        console.warn('Native file share error, falling back to download:', err)
+      }
     }
   }
 
-  // Fallback: share as text (no photos/audio, just the compact report code)
-  if (navigator.share) {
-    try {
-      const payload = buildSyncPayload({
-        referenceNumber: pkg.referenceNumber,
-        parcelId: pkg.parcelId,
-        category: pkg.category as any,
-        note: pkg.note,
-        photos: pkg.photos,
-        audio: pkg.audio,
-      })
-      const compact = encodeCompact(payload)
-      await navigator.share({
-        title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-        text: `[GIZ-REPORT]\n${compact}`,
-      })
-      addSyncLog(`P2P Share: Citizen shared compact report ${pkg.referenceNumber} (text only, photos not included)`)
-      return 'shared'
-    } catch (err: any) {
-      if (err.name === 'AbortError') return 'cancelled'
-    }
-  }
-
-  return 'unsupported'
+  // 2. Fallback: Download file directly so user has the .giz.json file to send via OS Bluetooth or import
+  downloadReportFile(pkg)
+  return 'downloaded'
 }
 
 // ─── OFFICER IMPORT ──────────────────────────────────────────────────────────

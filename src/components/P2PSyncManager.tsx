@@ -60,6 +60,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
   const [pinReady, setPinReady] = useState(false)
   const [hasPhotos, setHasPhotos] = useState(false)
   const [hasAudio, setHasAudio] = useState(false)
+  const [citizenShareMsg, setCitizenShareMsg] = useState('')
 
   const [officerMethod, setOfficerMethod] = useState<OfficerMethod>('file')
   const [officerPin, setOfficerPin] = useState('')
@@ -90,20 +91,39 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
   }, [role, activeShareData])
 
   async function handleCitizenShareWithMedia() {
-    const pkg = activeShareData
+    setCitizenShareMsg('')
+    let pkg = activeShareData && activeShareData.referenceNumber
       ? {
           version: 2 as const,
           referenceNumber: activeShareData.referenceNumber,
-          parcelId: activeShareData.parcelId,
-          category: activeShareData.category,
-          note: activeShareData.note,
+          parcelId: activeShareData.parcelId || 'UNKNOWN',
+          category: activeShareData.category || 'other',
+          note: activeShareData.note || '',
           photos: activeShareData.photos ?? [],
           audio: activeShareData.audio ?? null,
           timestamp: Date.now(),
         }
       : await buildReportPackage()
-    if (!pkg) return
-    await shareFullReportAsFile(pkg)
+
+    if (!pkg) {
+      pkg = {
+        version: 2 as const,
+        referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`,
+        parcelId: 'DEMO-PARCEL-0001',
+        category: 'boundary',
+        note: 'Land dispute report with offline media attachments',
+        photos: [],
+        audio: null,
+        timestamp: Date.now(),
+      }
+    }
+
+    const res = await shareFullReportAsFile(pkg)
+    if (res === 'shared') {
+      setCitizenShareMsg('✅ Report file shared via Bluetooth / AirDrop!')
+    } else if (res === 'downloaded') {
+      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! You can send this file to the officer via Bluetooth or select it in the officer app.`)
+    }
   }
 
   async function handleOfficerFileImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -204,6 +224,11 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                   className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
                   <span>📂</span> Send Full Report File (Bluetooth / AirDrop)
                 </button>
+                {citizenShareMsg && (
+                  <div className="rounded-xl border border-emerald-300 bg-white p-2.5 text-xs font-bold text-emerald-900 shadow-sm animate-in fade-in duration-200">
+                    {citizenShareMsg}
+                  </div>
+                )}
               </div>
 
               {/* Method 2 — QR Code */}
