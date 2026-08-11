@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { importReceivedReport, importReceivedFile, shareFullReportAsFile, buildReportPackage } from '../lib/bluetoothSync'
 import { buildSyncPayload, encodeCompact, generateVisualPin } from '../lib/syncPayload'
 import { getDisputeQueue } from '../lib/offlineStorage'
@@ -24,32 +24,48 @@ type OfficerMethod = 'qr' | 'file' | 'pin' | 'paste'
 
 async function buildAndStorePin(activeShareData?: Props['activeShareData']): Promise<{ pin: string; compact: string }> {
   let payload;
-  if (activeShareData) {
+  if (activeShareData && activeShareData.referenceNumber) {
     payload = buildSyncPayload({
       referenceNumber: activeShareData.referenceNumber,
-      parcelId: activeShareData.parcelId,
-      category: activeShareData.category as any,
-      note: activeShareData.note,
+      parcelId: activeShareData.parcelId || 'DEMO-PARCEL-0001',
+      category: (activeShareData.category as any) || 'boundary',
+      note: activeShareData.note || '',
       photos: activeShareData.photos ?? [],
       audio: activeShareData.audio ?? null,
     })
   } else {
-    const queue = await getDisputeQueue()
-    const latest = queue[0]
-    payload = latest
-      ? buildSyncPayload({ referenceNumber: latest.referenceNumber, parcelId: latest.parcelId, category: latest.category as any, note: latest.note, photos: latest.photos ?? [], audio: latest.audio ?? null })
-      : buildSyncPayload({ referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`, parcelId: 'DEMO-PARCEL-0001', category: 'boundary', note: 'Land dispute reported offline', photos: [], audio: null })
+    try {
+      const queue = await getDisputeQueue()
+      const latest = queue[0]
+      payload = latest
+        ? buildSyncPayload({ referenceNumber: latest.referenceNumber, parcelId: latest.parcelId, category: latest.category as any, note: latest.note, photos: latest.photos ?? [], audio: latest.audio ?? null })
+        : buildSyncPayload({ referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`, parcelId: 'DEMO-PARCEL-0001', category: 'boundary', note: 'Land dispute reported offline', photos: [], audio: null })
+    } catch {
+      payload = buildSyncPayload({ referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`, parcelId: 'DEMO-PARCEL-0001', category: 'boundary', note: 'Land dispute reported offline', photos: [], audio: null })
+    }
   }
 
   const compact = encodeCompact(payload)
   const pin = generateVisualPin(compact)
-  localStorage.setItem(`giz-pin-${pin}`, compact)
+  try {
+    localStorage.setItem(`giz-pin-${pin}`, compact)
+  } catch {}
 
+  // Fire-and-forget non-blocking Supabase relay upload
   if (supabase) {
-    try {
-      await supabase.from('disputes').delete().eq('submitted_by', `P2P-RELAY-${pin}`)
-      await supabase.from('disputes').insert({ parcel_id: payload.parcelId || 'DEMO-PARCEL-0001', submitted_by: `P2P-RELAY-${pin}`, description: `P2P-CODE:${compact}`, status: 'submitted', fake_reference_number: `P2P-${pin}-${Date.now().toString().slice(-4)}` })
-    } catch {}
+    const client = supabase
+    ;(async () => {
+      try {
+        await client.from('disputes').delete().eq('submitted_by', `P2P-RELAY-${pin}`)
+        await client.from('disputes').insert({
+          parcel_id: payload.parcelId || 'DEMO-PARCEL-0001',
+          submitted_by: `P2P-RELAY-${pin}`,
+          description: `P2P-CODE:${compact}`,
+          status: 'submitted',
+          fake_reference_number: `P2P-${pin}-${Date.now().toString().slice(-4)}`,
+        })
+      } catch {}
+    })()
   }
   return { pin, compact }
 }
@@ -73,7 +89,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
   const [errorMsg, setErrorMsg] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useMemo(() => {
+  useEffect(() => {
     if (role !== 'citizen') return
     buildAndStorePin(activeShareData).then(({ pin: p, compact: c }) => { setPin(p); setCompact(c); setPinReady(true) })
     if (activeShareData) {
@@ -220,8 +236,8 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                 <p className="text-[11px] text-emerald-700 font-semibold">
                   Sends a <strong>.giz.json</strong> file via Bluetooth/AirDrop/QuickShare. Officer opens app and taps "Import File":
                 </p>
-                <button type="button" onClick={handleCitizenShareWithMedia} disabled={!pinReady}
-                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
+                <button type="button" onClick={handleCitizenShareWithMedia}
+                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
                   <span>📂</span> Send Full Report File (Bluetooth / AirDrop)
                 </button>
                 {citizenShareMsg && (
