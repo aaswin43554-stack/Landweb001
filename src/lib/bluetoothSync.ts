@@ -82,60 +82,31 @@ export function downloadReportFile(pkg: ReportPackage): void {
  * Guarantees that the OS QuickShare / Bluetooth share panel opens on all mobile devices!
  */
 /**
- * Shares the FULL report via native QuickShare / Bluetooth / AirDrop share tray AND downloads file in ONE click.
- * Includes photos and audio. Works 100% offline.
+ * Shares the FULL report strictly as a .giz.json file via the phone's native QuickShare / Bluetooth / AirDrop share tray.
+ * Includes photos and audio. Does NOT auto-download files.
  */
-export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
-  // 1. Download file directly to phone so user has the .giz.json file saved on their device
-  downloadReportFile(pkg)
+export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'unsupported'> {
+  const json = JSON.stringify(pkg, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const file = new File([blob], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'application/json' })
 
-  const json = JSON.stringify(pkg)
-  const fileJson = new File([json], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'application/json' })
-  const fileTxt = new File([json], `giz-report-${pkg.referenceNumber}.txt`, { type: 'text/plain' })
-
-  // 2. Immediately open native QuickShare / Bluetooth OS share tray
   if (typeof navigator !== 'undefined' && navigator.share) {
-    if (navigator.canShare && navigator.canShare({ files: [fileJson] })) {
-      try {
-        await navigator.share({
-          title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `GIZ Report ${pkg.referenceNumber}`,
-          files: [fileJson],
-        })
-        addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.giz.json via native share tray`)
-        return 'shared'
-      } catch (err: any) {
-        if (err.name === 'AbortError') return 'cancelled'
-      }
-    }
-
-    if (navigator.canShare && navigator.canShare({ files: [fileTxt] })) {
-      try {
-        await navigator.share({
-          title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `GIZ Report ${pkg.referenceNumber}`,
-          files: [fileTxt],
-        })
-        addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.txt via native share tray`)
-        return 'shared'
-      } catch (err: any) {
-        if (err.name === 'AbortError') return 'cancelled'
-      }
-    }
-
     try {
       await navigator.share({
         title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-        text: `[GIZ-REPORT-FULL]\n${json}`,
+        text: `GIZ Land Dispute Report (${pkg.referenceNumber})`,
+        files: [file],
       })
-      addSyncLog(`P2P Share: Shared report content via native text share`)
+      addSyncLog(`P2P Share: Shared report file ${pkg.referenceNumber}.giz.json via native share tray`)
       return 'shared'
     } catch (err: any) {
       if (err.name === 'AbortError') return 'cancelled'
+      console.warn('Native Bluetooth/QuickShare file share error:', err)
+      return 'unsupported'
     }
   }
 
-  return 'downloaded'
+  return 'unsupported'
 }
 
 // ─── OFFICER IMPORT ──────────────────────────────────────────────────────────

@@ -149,9 +149,9 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
     setIsSearchingDevice(false)
 
     if (res === 'shared') {
-      setCitizenShareMsg(`✅ Report file sent via ${preferredMethod === 'quickshare' ? 'QuickShare / Nearby Share' : 'Bluetooth / AirDrop'}!`)
-    } else if (res === 'downloaded' || res === 'unsupported') {
-      setCitizenShareMsg(`📥 Report file saved (giz-report-${pkg.referenceNumber}.giz.json)! Open your phone's File Manager to send via QuickShare or select it in the officer app.`)
+      setCitizenShareMsg(`✅ ${preferredMethod === 'quickshare' ? 'QuickShare' : 'Bluetooth / AirDrop'} share panel opened! Select the Officer's device from the list.`)
+    } else if (res === 'unsupported') {
+      setCitizenShareMsg(`⚠️ Native Bluetooth/QuickShare sharing is unavailable on this browser or platform. Please tap "Direct Download File" below to download the .giz.json file instead.`)
     }
   }
 
