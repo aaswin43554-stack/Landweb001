@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  getCachedDbDisputes,
-  cacheDbDisputes,
-  addSyncLog,
-} from '../lib/offlineStorage'
-import type { Dispute } from '../lib/land'
-import {
   requestBluetoothDevice,
   sendDisputesOverP2P,
   listenForIncomingP2PDisputes,
@@ -24,45 +18,43 @@ type DiscoveredDevice = {
   name: string
   role: string
   signal: 'strong' | 'medium'
-  isOfficer: boolean
 }
 
-const DEFAULT_DISCOVERED_DEVICES: DiscoveredDevice[] = [
+const DEFAULT_OFFICER_DEVICES: DiscoveredDevice[] = [
   {
     id: 'fo-tab-92',
     name: "Officer Tablet (Ban Namdeng Field Agent)",
     role: "Field Officer Device (FO-TABLET-92)",
     signal: 'strong',
-    isOfficer: true,
   },
   {
     id: 'fo-mob-44',
     name: "Officer Phone (District Inspector)",
     role: "Field Officer Device (FO-MOBILE-44)",
     signal: 'medium',
-    isOfficer: true,
   },
 ]
 
 export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
   const [syncState, setSyncState] = useState<SyncState>('searching')
-  const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredDevice[]>(DEFAULT_DISCOVERED_DEVICES)
+  const [discoveredDevices, setDiscoveredDevices] = useState<DiscoveredDevice[]>(DEFAULT_OFFICER_DEVICES)
   const [targetDevice, setTargetDevice] = useState('')
   const [progress, setProgress] = useState(0)
   const [itemCount, setItemCount] = useState(0)
   const [isScanningBt, setIsScanningBt] = useState(false)
+  const [isReceiverActive, setIsReceiverActive] = useState(false)
 
-  // Listen for live P2P Broadcast Channel transmissions on Officer device
+  // ONLY Field Officer device listens for incoming P2P Broadcast Channel transmissions
   useEffect(() => {
+    if (role !== 'field-officer' || !isReceiverActive) return
+
     const cleanup = listenForIncomingP2PDisputes((count) => {
       setItemCount((prev) => prev + count)
-      setSyncState('transferring')
-      setProgress(100)
       setSyncState('complete')
       if (onSyncSuccess) onSyncSuccess()
     })
     return cleanup
-  }, [onSyncSuccess])
+  }, [role, isReceiverActive, onSyncSuccess])
 
   // Trigger hardware Web Bluetooth device scan prompt
   async function handleHardwareBluetoothScan() {
@@ -73,12 +65,20 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
       const newDev: DiscoveredDevice = {
         id: device.id,
         name: device.name,
-        role: 'Discovered Bluetooth Device',
+        role: 'Verified Bluetooth Device',
         signal: 'strong',
-        isOfficer: true,
       }
       setDiscoveredDevices((prev) => [newDev, ...prev])
     }
+  }
+
+  // Activate Receiver mode on Officer device
+  async function handleActivateOfficerReceiver() {
+    setIsScanningBt(true)
+    // Request hardware bluetooth permission prompt
+    await requestBluetoothDevice()
+    setIsScanningBt(false)
+    setIsReceiverActive(true)
   }
 
   // Handle citizen manually clicking on an officer device from the list
@@ -88,74 +88,21 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
 
     setTimeout(async () => {
       setSyncState('transferring')
+      setProgress(25)
 
-      let count = 0
-      if (role === 'citizen') {
-        const res = await sendDisputesOverP2P()
-        count = res.count
-        setItemCount(count)
-      } else {
-        const sharedKey = 'giz-shared-p2p-disputes'
-        const sharedDisputes = JSON.parse(localStorage.getItem(sharedKey) || '[]')
-        count = sharedDisputes.length
+      // Citizen sends queued dispute over P2P Channel
+      const res = await sendDisputesOverP2P()
+      const count = res.count > 0 ? res.count : 1
+      setItemCount(count)
+      
+      setProgress(60)
 
-        if (count === 0) {
-          count = 1
-          setItemCount(count)
-
-          const mockImported: Dispute = {
-            id: `p2p-imported-${Date.now()}`,
-            parcel_id: 'DEMO-PARCEL-0026',
-            submitted_by: 'Villager (P2P Bluetooth)',
-            status: 'submitted',
-            fake_reference_number: `DEMO-DSP-P2P-${Date.now().toString().slice(-4)}`,
-            created_at: new Date().toISOString(),
-            description: 'Boundary Issue — Neighbor claims land overlap at village forest border.',
-            parcel: { demo_village_name: 'Ban Silimone', village_id: 'DEMO-VLG-002', zone_type: 'forest' },
-          }
-          const currentDb = getCachedDbDisputes()
-          cacheDbDisputes([mockImported, ...currentDb])
-          addSyncLog('Bluetooth P2P: Dispute imported to Officer local device database')
-        } else {
-          setItemCount(count)
-          const currentDb = getCachedDbDisputes()
-          const newDisputes: Dispute[] = sharedDisputes.map((d: any) => ({
-            id: d.id || `p2p-imported-${Date.now()}`,
-            parcel_id: d.parcelId,
-            submitted_by: 'Villager (P2P Bluetooth)',
-            status: 'submitted',
-            fake_reference_number: d.id.includes('DEMO-DSP') ? d.id : `DEMO-DSP-${Date.now().toString().slice(-4)}`,
-            created_at: new Date(d.timestamp || Date.now()).toISOString(),
-            description: `${(d.category || 'Issue').toUpperCase()} — ${d.note || ''}`,
-            parcel: { demo_village_name: 'Ban Namdeng', village_id: 'DEMO-VLG-001', zone_type: 'forest' },
-            photos: d.photos || [],
-            audio: d.audio || null,
-          }))
-
-          const mergedDb = [...currentDb]
-          for (const dispute of newDisputes) {
-            if (!mergedDb.some((d) => d.id === dispute.id || d.fake_reference_number === dispute.fake_reference_number)) {
-              mergedDb.unshift(dispute)
-            }
-          }
-
-          cacheDbDisputes(mergedDb)
-          localStorage.removeItem(sharedKey)
-          addSyncLog(`Bluetooth P2P: Imported ${count} disputes via peer network`)
-        }
-      }
-
-      let currentProgress = 0
-      const interval = setInterval(() => {
-        currentProgress += 25
-        setProgress(currentProgress)
-        if (currentProgress >= 100) {
-          clearInterval(interval)
-          setSyncState('complete')
-          if (onSyncSuccess) onSyncSuccess()
-        }
-      }, 100)
-    }, 1200)
+      setTimeout(() => {
+        setProgress(100)
+        setSyncState('complete')
+        if (onSyncSuccess) onSyncSuccess()
+      }, 800)
+    }, 1000)
   }
 
   return (
@@ -181,20 +128,20 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
             0% Internet Required
           </span>
           <h3 className="text-xl font-extrabold text-slate-800 mt-2">
-            {role === 'citizen' ? 'Select Officer Bluetooth Device' : 'Field Officer P2P Receiver'}
+            {role === 'citizen' ? 'Select Officer Bluetooth Device' : 'Field Officer Bluetooth Receiver'}
           </h3>
         </div>
 
-        {/* Dynamic State View */}
-        {syncState === 'searching' && (
+        {/* CITIZEN SENDER VIEW */}
+        {role === 'citizen' && (
           <div className="w-full flex flex-col items-center gap-4">
-            {role === 'citizen' ? (
+            {syncState === 'searching' && (
               <>
                 <p className="text-xs font-semibold text-slate-500 text-center">
-                  Nearby Bluetooth devices found. <strong>Click your Field Officer&apos;s device</strong> below to send your report:
+                  Nearby Officer devices found. <strong>Click your Field Officer&apos;s device below</strong> to share your report:
                 </p>
 
-                {/* Discovered Device List */}
+                {/* Discovered Officer Device List */}
                 <div className="w-full flex flex-col gap-2.5">
                   {discoveredDevices.map((dev) => (
                     <button
@@ -228,67 +175,104 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
                   disabled={isScanningBt}
                   className="w-full py-2.5 px-3 text-xs font-extrabold bg-slate-800 hover:bg-slate-900 text-white rounded-xl shadow cursor-pointer active:scale-98 transition-all mt-1"
                 >
-                  {isScanningBt ? 'Scanning Browser Bluetooth...' : '🔍 Scan Hardware Bluetooth Prompt'}
+                  {isScanningBt ? 'Scanning Browser Bluetooth...' : '🔍 Scan Hardware Bluetooth Devices'}
                 </button>
               </>
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <div className="w-20 h-20 rounded-full bg-emerald-100 border-4 border-emerald-600 flex items-center justify-center shadow-lg text-3xl animate-pulse">
-                  📡
+            )}
+
+            {syncState === 'connected' && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <div className="w-24 h-24 rounded-full bg-blue-100 border-4 border-blue-500 flex items-center justify-center shadow-lg text-3xl">
+                  🤝
                 </div>
-                <p className="text-sm font-bold text-slate-800">Officer Receiver Mode Active</p>
-                <p className="text-xs text-slate-500">
-                  Listening for incoming citizen land reports via Bluetooth P2P channel...
+                <p className="text-sm font-bold text-blue-600">Connecting to {targetDevice}...</p>
+              </div>
+            )}
+
+            {syncState === 'transferring' && (
+              <div className="flex flex-col items-center gap-3 w-full px-4 py-4">
+                <div className="relative w-28 h-28 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
+                  <svg className="w-28 h-28 transform -rotate-90">
+                    <circle
+                      cx="56"
+                      cy="56"
+                      r="48"
+                      className="stroke-emerald-600 fill-none"
+                      strokeWidth="6"
+                      strokeDasharray={2 * Math.PI * 48}
+                      strokeDashoffset={2 * Math.PI * 48 * (1 - progress / 100)}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="absolute text-xl font-black text-slate-800">{progress}%</span>
+                </div>
+                <p className="text-xs font-semibold text-emerald-600 animate-pulse">
+                  Transferring report to {targetDevice}...
+                </p>
+              </div>
+            )}
+
+            {syncState === 'complete' && (
+              <div className="flex flex-col items-center gap-2 text-center py-2">
+                <div className="w-24 h-24 rounded-full bg-emerald-100 border-4 border-emerald-600 flex items-center justify-center shadow-lg text-4xl">
+                  ✅
+                </div>
+                <p className="text-base font-black text-slate-800 mt-1">Transfer Complete!</p>
+                <p className="text-xs font-semibold text-slate-500 max-w-xs">
+                  Report successfully sent to <strong>{targetDevice}</strong>. It will automatically upload to Supabase when the officer gets internet connection.
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {syncState === 'connected' && (
-          <div className="flex flex-col items-center gap-2 py-4">
-            <div className="w-24 h-24 rounded-full bg-blue-100 border-4 border-blue-500 flex items-center justify-center shadow-lg text-3xl">
-              🤝
-            </div>
-            <p className="text-sm font-bold text-blue-600">Connecting to {targetDevice}...</p>
-          </div>
-        )}
-
-        {syncState === 'transferring' && (
-          <div className="flex flex-col items-center gap-3 w-full px-4 py-4">
-            <div className="relative w-28 h-28 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
-              <svg className="w-28 h-28 transform -rotate-90">
-                <circle
-                  cx="56"
-                  cy="56"
-                  r="48"
-                  className="stroke-emerald-600 fill-none"
-                  strokeWidth="6"
-                  strokeDasharray={2 * Math.PI * 48}
-                  strokeDashoffset={2 * Math.PI * 48 * (1 - progress / 100)}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <span className="absolute text-xl font-black text-slate-800">{progress}%</span>
-            </div>
-            <p className="text-xs font-semibold text-emerald-600 animate-pulse">
-              Transferring dispute report directly over Bluetooth peer channel...
-            </p>
-          </div>
-        )}
-
-        {syncState === 'complete' && (
-          <div className="flex flex-col items-center gap-2 text-center py-2">
-            <div className="w-24 h-24 rounded-full bg-emerald-100 border-4 border-emerald-600 flex items-center justify-center shadow-lg text-4xl">
-              ✅
-            </div>
-            <p className="text-base font-black text-slate-800 mt-1">Transfer Complete!</p>
-            <p className="text-xs font-semibold text-slate-500 max-w-xs">
-              {role === 'citizen'
-                ? `Report successfully sent to Officer (${targetDevice}). It will automatically upload to Supabase when the officer gets internet.`
-                : `Successfully received and saved ${itemCount} report(s) into Officer local device database.`}
-            </p>
+        {/* FIELD OFFICER RECEIVER VIEW */}
+        {role !== 'citizen' && (
+          <div className="w-full flex flex-col items-center gap-4 text-center py-2">
+            {!isReceiverActive ? (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-slate-300 flex items-center justify-center text-3xl">
+                  📶
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Officer Bluetooth Receiver Disabled</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Click below to enable Bluetooth receiving mode and listen for incoming citizen land reports:
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleActivateOfficerReceiver}
+                  disabled={isScanningBt}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-2xl shadow-md active:scale-98 transition-all cursor-pointer"
+                >
+                  {isScanningBt ? 'Enabling Bluetooth...' : '📡 Turn On Bluetooth Receiver Mode'}
+                </button>
+              </div>
+            ) : syncState === 'complete' ? (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="w-24 h-24 rounded-full bg-emerald-100 border-4 border-emerald-600 flex items-center justify-center text-4xl shadow-lg">
+                  📥
+                </div>
+                <p className="text-base font-black text-slate-800">Report Received!</p>
+                <p className="text-xs font-semibold text-slate-600 max-w-xs">
+                  Successfully received <strong>{itemCount} report(s)</strong> from Citizen. Saved in Officer local device database (Queued for Supabase sync).
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-6">
+                <div className="w-20 h-20 rounded-full bg-emerald-100 border-4 border-emerald-600 flex items-center justify-center text-3xl animate-pulse shadow-lg">
+                  📡
+                </div>
+                <p className="text-sm font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300">
+                  🟢 Bluetooth Receiver Active
+                </p>
+                <p className="text-xs text-slate-500 max-w-xs">
+                  Waiting for citizen to select this Officer device and send report...
+                </p>
+              </div>
+            )}
           </div>
         )}
 
