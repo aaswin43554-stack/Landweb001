@@ -523,9 +523,31 @@ type TranslationsContextValue = {
 
 const TranslationsContext = createContext<TranslationsContextValue | null>(null)
 
+const PREFERRED_LANG_KEY = 'giz-preferred-language'
+
 export function TranslationsProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('lo')
+  const [language, setLanguageState] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem(PREFERRED_LANG_KEY) as Language
+      if (saved && ['lo', 'en', 'hm', 'km'].includes(saved)) {
+        return saved
+      }
+    } catch {
+      // Ignore storage errors, fallback to default Lao
+    }
+    return 'lo'
+  })
+  
   const [rows, setRows] = useState<Record<string, TranslationEntry>>(FALLBACK_TRANSLATIONS)
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang)
+    try {
+      localStorage.setItem(PREFERRED_LANG_KEY, lang)
+    } catch (err) {
+      console.warn('Failed to persist preferred language choice:', err)
+    }
+  }
 
   useEffect(() => {
     async function loadCached() {
@@ -570,7 +592,8 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
   }
 
   function toggleLanguage() {
-    setLanguage((prev) => LANGUAGE_CYCLE[(LANGUAGE_CYCLE.indexOf(prev) + 1) % LANGUAGE_CYCLE.length])
+    const nextLang = LANGUAGE_CYCLE[(LANGUAGE_CYCLE.indexOf(language) + 1) % LANGUAGE_CYCLE.length]
+    setLanguage(nextLang)
   }
 
   return (
