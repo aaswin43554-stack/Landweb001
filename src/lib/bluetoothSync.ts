@@ -86,7 +86,7 @@ export function downloadReportFile(pkg: ReportPackage): void {
  * Tries file sharing (.json, .giz.json, .txt) and falls back to text share package
  * so that the native OS QuickShare / Bluetooth panel ALWAYS opens on mobile devices!
  */
-export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'unsupported'> {
+export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
   const json = JSON.stringify(pkg, null, 2)
   const blobJson = new Blob([json], { type: 'application/json' })
   const blobTxt = new Blob([json], { type: 'text/plain' })
@@ -141,7 +141,9 @@ export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared
     }
   }
 
-  return 'unsupported'
+  // 4. Download file directly if native share is not available on this browser/environment
+  downloadReportFile(pkg)
+  return 'downloaded'
 }
 
 // ─── OFFICER IMPORT ──────────────────────────────────────────────────────────
