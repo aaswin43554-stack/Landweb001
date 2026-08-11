@@ -77,6 +77,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
   const [hasPhotos, setHasPhotos] = useState(false)
   const [hasAudio, setHasAudio] = useState(false)
   const [citizenShareMsg, setCitizenShareMsg] = useState('')
+  const [isSearchingDevice, setIsSearchingDevice] = useState(false)
 
   const [officerMethod, setOfficerMethod] = useState<OfficerMethod>('file')
   const [officerPin, setOfficerPin] = useState('')
@@ -106,8 +107,10 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
     }
   }, [role, activeShareData])
 
-  async function handleCitizenShareWithMedia() {
+  async function handleCitizenShareWithMedia(preferredMethod: 'quickshare' | 'bluetooth' | 'download' = 'quickshare') {
     setCitizenShareMsg('')
+    setIsSearchingDevice(true)
+
     let pkg = activeShareData && activeShareData.referenceNumber
       ? {
           version: 2 as const,
@@ -134,11 +137,21 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
       }
     }
 
+    if (preferredMethod === 'download') {
+      const { downloadReportFile } = await import('../lib/bluetoothSync')
+      downloadReportFile(pkg)
+      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! Share this file with the officer via QuickShare / Bluetooth in your phone's File Manager.`)
+      setIsSearchingDevice(false)
+      return
+    }
+
     const res = await shareFullReportAsFile(pkg)
+    setIsSearchingDevice(false)
+
     if (res === 'shared') {
-      setCitizenShareMsg('✅ Report file shared via Bluetooth / AirDrop!')
-    } else if (res === 'downloaded') {
-      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! You can send this file to the officer via Bluetooth or select it in the officer app.`)
+      setCitizenShareMsg(`✅ Report file sent via ${preferredMethod === 'quickshare' ? 'QuickShare / Nearby Share' : 'Bluetooth / AirDrop'}!`)
+    } else if (res === 'downloaded' || res === 'unsupported') {
+      setCitizenShareMsg(`📥 Report file saved (giz-report-${pkg.referenceNumber}.giz.json)! Open your phone's File Manager to send via QuickShare or select it in the officer app.`)
     }
   }
 
@@ -234,12 +247,38 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                   {!hasPhotos && !hasAudio && <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">No photos/audio in this report</span>}
                 </div>
                 <p className="text-[11px] text-emerald-700 font-semibold">
-                  Sends a <strong>.giz.json</strong> file via Bluetooth/AirDrop/QuickShare. Officer opens app and taps "Import File":
+                  Sends the complete report file with photos & voice note to nearby officer devices:
                 </p>
-                <button type="button" onClick={handleCitizenShareWithMedia}
-                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
-                  <span>📂</span> Send Full Report File (Bluetooth / AirDrop)
-                </button>
+
+                {/* Radar Searching Animation */}
+                {isSearchingDevice && (
+                  <div className="rounded-xl border-2 border-emerald-400 bg-emerald-100/70 p-3 flex flex-col items-center gap-2 text-center animate-in fade-in duration-200">
+                    <div className="relative flex items-center justify-center w-12 h-12">
+                      <div className="absolute w-12 h-12 rounded-full bg-emerald-500/30 animate-ping" />
+                      <div className="relative w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-base">📡</div>
+                    </div>
+                    <p className="text-xs font-extrabold text-emerald-900">Searching for Officer's Device...</p>
+                    <p className="text-[10px] font-semibold text-emerald-700">Make sure the Officer's phone has Bluetooth / QuickShare turned ON</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <button type="button" onClick={() => handleCitizenShareWithMedia('quickshare')}
+                    className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
+                    <span>⚡</span> Send via QuickShare / Nearby Share
+                  </button>
+
+                  <button type="button" onClick={() => handleCitizenShareWithMedia('bluetooth')}
+                    className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl text-xs shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
+                    <span>📶</span> Send via Bluetooth / AirDrop
+                  </button>
+
+                  <button type="button" onClick={() => handleCitizenShareWithMedia('download')}
+                    className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-xl text-[11px] shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5">
+                    <span>📥</span> Direct Download File (.giz.json)
+                  </button>
+                </div>
+
                 {citizenShareMsg && (
                   <div className="rounded-xl border border-emerald-300 bg-white p-2.5 text-xs font-bold text-emerald-900 shadow-sm animate-in fade-in duration-200">
                     {citizenShareMsg}
