@@ -25,6 +25,9 @@ export function LoginScreen() {
   const [isScanning, setIsScanning] = useState(false)
   const [scanSuccess, setScanSuccess] = useState(false)
   
+  // Interactive Modal Mode state: 'fingerprint' | 'pin'
+  const [modalMode, setModalMode] = useState<'fingerprint' | 'pin'>('fingerprint')
+  
   // Interactive PIN Pad States
   const [enteredPin, setEnteredPin] = useState('')
   const [pinError, setPinError] = useState(false)
@@ -46,35 +49,40 @@ export function LoginScreen() {
     }
   }, [registeredUsers, selectedUserId])
 
-  const handlePasskeyLogin = async () => {
+  // Open login modal in Fingerprint mode
+  const handleOpenFingerprintLogin = async () => {
     if (!selectedUserId) return
-    
-    // Clear previous values
     setEnteredPin('')
     setPinError(false)
     setScanSuccess(false)
+    setModalMode('fingerprint')
+    setIsScanning(true)
 
+    // Trigger WebAuthn if credential exists
     const targetUser = registeredUsers.find(u => u.id === selectedUserId)
-    const hasCredential = Boolean(targetUser?.credentialId)
-    
-    if (hasBiometricHardware && hasCredential) {
-      // 1. Device has biometric hardware AND user has a passkey: Trigger native browser scanner
-      setIsScanning(true)
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      
-      const success = await loginWithPasskey(selectedUserId)
-      if (success) {
-        setScanSuccess(true)
-        await new Promise((resolve) => setTimeout(resolve, 600))
-      } else {
-        alert('Biometric validation failed.')
+    if (hasBiometricHardware && targetUser?.credentialId) {
+      try {
+        const success = await loginWithPasskey(selectedUserId)
+        if (success) {
+          setScanSuccess(true)
+          await new Promise((resolve) => setTimeout(resolve, 600))
+          setIsScanning(false)
+        }
+      } catch {
+        // Native scan failed or canceled, stay in modal so user can switch to PIN
       }
-      setIsScanning(false)
-    } else {
-      // 2. Device lacks biometrics OR user has no registered passkey: Open interactive Backup PIN input modal
-      setIsScanning(true)
     }
-  };
+  }
+
+  // Open login modal in PIN mode directly
+  const handleOpenPinLogin = () => {
+    if (!selectedUserId) return
+    setEnteredPin('')
+    setPinError(false)
+    setScanSuccess(false)
+    setModalMode('pin')
+    setIsScanning(true)
+  }
 
   // Handle number click on simulated Pin Pad
   const handlePinNumClick = async (num: string) => {
@@ -182,7 +190,7 @@ export function LoginScreen() {
         {tab === 'passkey' && !showRegister && (
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-600">
-              Select your profile and scan biometrics to log in.
+              Select your profile and choose how you want to log in.
             </p>
 
             {/* Profile Dropdown Selector */}
@@ -194,33 +202,42 @@ export function LoginScreen() {
                 id="biometric-user-select"
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs bg-white focus:outline-none font-semibold text-slate-700"
+                className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm bg-white focus:outline-none font-semibold text-slate-700 cursor-pointer"
               >
                 {registeredUsers
                   .filter((u) => u.biometricRegistered)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.username} ({u.role === 'field-officer' ? 'Officer' : 'Citizen'})
+                      {u.username} ({u.role === 'field-officer' ? 'Officer' : u.role === 'admin' ? 'Admin' : 'Citizen'})
                     </option>
                   ))}
               </select>
             </div>
             
-            <button
-              type="button"
-              onClick={handlePasskeyLogin}
-              disabled={isProcessing}
-              className="w-28 h-28 rounded-full bg-emerald-50 border-4 border-emerald-600 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 active:scale-95 transition-all shadow-md cursor-pointer"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-14 h-14">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              </svg>
-            </button>
+            {/* Clear Choice Buttons: Fingerprint OR PIN */}
+            <div className="w-full flex flex-col gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={handleOpenFingerprintLogin}
+                disabled={isProcessing}
+                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                <span>Log In with Fingerprint / Passkey</span>
+              </button>
 
-            <span className="text-xs font-bold text-slate-500">
-              {hasBiometricHardware ? 'Tap to verify fingerprint sensor' : 'Tap to sign in with Backup PIN'}
-            </span>
+              <button
+                type="button"
+                onClick={handleOpenPinLogin}
+                disabled={isProcessing}
+                className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-sm border border-slate-200 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <span>🔢 Log In with 4-Digit Backup PIN</span>
+              </button>
+            </div>
 
             <div className="w-full border-t border-gray-200 pt-4 mt-2">
               <button
@@ -375,7 +392,7 @@ export function LoginScreen() {
         )}
       </div>
 
-      {/* Tactile Biometric OR PIN Pad Scanner Overlay */}
+      {/* Interactive Modal: Fingerprint OR PIN Verification */}
       {isScanning && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
           <style>{`
@@ -396,104 +413,140 @@ export function LoginScreen() {
             }
           `}</style>
           
-          <div className="bg-white rounded-3xl p-6 max-w-[280px] w-full flex flex-col items-center gap-5 shadow-2xl border-2 border-emerald-500 animate-in fade-in zoom-in duration-200">
-            {/* Header info */}
+          <div className="bg-white rounded-3xl p-6 max-w-[300px] w-full flex flex-col items-center gap-5 shadow-2xl border-2 border-emerald-500 animate-in fade-in zoom-in duration-200">
+            {/* Modal Title */}
             <div className="text-center w-full">
               <h3 className="font-bold text-lg text-slate-800">
                 {scanSuccess 
                   ? 'Verification Successful' 
-                  : hasBiometricHardware 
+                  : modalMode === 'fingerprint' 
                     ? 'Scanning Fingerprint' 
-                    : 'Verify Backup PIN'
+                    : 'Enter 4-Digit Backup PIN'
                 }
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                 {scanSuccess 
                   ? 'Access granted. Welcome back!' 
-                  : hasBiometricHardware 
+                  : modalMode === 'fingerprint' 
                     ? 'Place your finger on your device\'s fingerprint sensor.' 
-                    : 'Device lacks fingerprint hardware. Enter your 4-digit backup PIN (default: 1234).'
+                    : 'Enter your 4-digit backup PIN (default: 1234 / 1010).'
                 }
               </p>
             </div>
 
-            {/* Visual feedback element (Fingerprint OR Pin dots) */}
-            {hasBiometricHardware || scanSuccess ? (
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                scanSuccess ? 'bg-emerald-600 text-white' : 'bg-emerald-50 border-4 border-emerald-650'
-              }`}>
-                {scanSuccess ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-10 h-10">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-10 h-10 text-emerald-700 animate-pulse">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  </svg>
+            {/* Mode 1: Fingerprint Scanning View */}
+            {modalMode === 'fingerprint' && (
+              <div className="flex flex-col items-center gap-4 w-full">
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
+                  scanSuccess ? 'bg-emerald-600 text-white' : 'bg-emerald-50 border-4 border-emerald-650'
+                }`}>
+                  {scanSuccess ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-10 h-10">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-10 h-10 text-emerald-700 animate-pulse">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    </svg>
+                  )}
+                </div>
+
+                {!scanSuccess && (
+                  <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden relative">
+                    <div className="h-full bg-emerald-600 animate-infinite-loading rounded-full w-1/2 absolute top-0 left-0"></div>
+                  </div>
                 )}
               </div>
-            ) : (
-              /* Dot indicator for PIN entry */
-              <div className={`flex gap-3 my-2 justify-center ${pinError ? 'animate-shake' : ''}`}>
-                {[0, 1, 2, 3].map((idx) => (
-                  <span
-                    key={idx}
-                    className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
-                      idx < enteredPin.length
-                        ? 'bg-emerald-650 border-emerald-650 scale-110'
-                        : pinError
-                          ? 'border-red-500 bg-red-50'
-                          : 'border-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
             )}
 
-            {/* Simulated progress bar for hardware biometrics */}
-            {hasBiometricHardware && !scanSuccess && (
-              <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden relative">
-                <div className="h-full bg-emerald-600 animate-infinite-loading rounded-full w-1/2 absolute top-0 left-0"></div>
-              </div>
-            )}
-
-            {/* Numerical PIN Pad for non-biometric laptops */}
-            {!hasBiometricHardware && !scanSuccess && (
-              <div className="w-full flex flex-col gap-2 border-t border-gray-100 pt-3">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => handlePinNumClick(n)}
-                      className="py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-bold text-slate-700 hover:bg-gray-100 active:bg-gray-200 select-none cursor-pointer"
-                    >
-                      {n}
-                    </button>
+            {/* Mode 2: Numerical PIN Pad Entry */}
+            {modalMode === 'pin' && (
+              <div className="flex flex-col items-center gap-3 w-full">
+                {/* Dot indicator for PIN entry */}
+                <div className={`flex gap-3 my-1 justify-center ${pinError ? 'animate-shake' : ''}`}>
+                  {[0, 1, 2, 3].map((idx) => (
+                    <span
+                      key={idx}
+                      className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
+                        idx < enteredPin.length
+                          ? 'bg-emerald-600 border-emerald-600 scale-110'
+                          : pinError
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-gray-300'
+                      }`}
+                    />
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setIsScanning(false)}
-                    className="py-2.5 text-xs font-bold text-gray-500 hover:text-gray-700 select-none cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePinNumClick('0')}
-                    className="py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-bold text-slate-700 hover:bg-gray-100 active:bg-gray-200 select-none cursor-pointer"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePinDelete}
-                    className="py-2.5 text-xs font-bold text-red-650 hover:text-red-800 select-none cursor-pointer"
-                  >
-                    ⌫
-                  </button>
                 </div>
+
+                {!scanSuccess && (
+                  <div className="w-full flex flex-col gap-2 border-t border-gray-100 pt-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => handlePinNumClick(n)}
+                          className="py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-bold text-slate-700 hover:bg-gray-100 active:bg-gray-200 select-none cursor-pointer"
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setIsScanning(false)}
+                        className="py-2.5 text-xs font-bold text-gray-500 hover:text-gray-700 select-none cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePinNumClick('0')}
+                        className="py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-bold text-slate-700 hover:bg-gray-100 active:bg-gray-200 select-none cursor-pointer"
+                      >
+                        0
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePinDelete}
+                        className="py-2.5 text-xs font-bold text-red-600 hover:text-red-800 select-none cursor-pointer"
+                      >
+                        ⌫
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bottom Switcher & Close Controls */}
+            {!scanSuccess && (
+              <div className="w-full border-t border-gray-100 pt-3 flex flex-col gap-2 text-center">
+                {modalMode === 'fingerprint' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setModalMode('pin'); setEnteredPin(''); setPinError(false); }}
+                    className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer py-1"
+                  >
+                    🔢 Use 4-Digit Backup PIN Instead ➔
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setModalMode('fingerprint'); handleOpenFingerprintLogin(); }}
+                    className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer py-1"
+                  >
+                    🎙️ Use Fingerprint Scan Instead ➔
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsScanning(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600 font-semibold cursor-pointer"
+                >
+                  Close Modal
+                </button>
               </div>
             )}
           </div>
