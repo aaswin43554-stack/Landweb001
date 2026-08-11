@@ -70,36 +70,49 @@ export function downloadReportFile(pkg: ReportPackage): void {
 }
 
 /**
- * Shares the FULL report as a real file via the phone's native share tray.
- * Includes photos and audio. Works 100% offline via Bluetooth / AirDrop / QuickShare.
- * Fallback to file download if native share is not supported by browser.
+ * Shares the FULL report as a real file or text package via the phone's native share tray.
+ * Includes photos and audio. Works 100% offline via QuickShare / Bluetooth / AirDrop.
  *
- * Officer receives a .giz.json file — they open the app and import it.
+ * Uses text/plain file type so Android Chrome & iOS Safari native share tray (QuickShare) opens!
  */
 export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded' | 'unsupported'> {
   const json = JSON.stringify(pkg)
-  const blob = new Blob([json], { type: 'application/json' })
-  const file = new File([blob], `giz-report-${pkg.referenceNumber}.giz.json`, { type: 'application/json' })
+  
+  // Use text/plain file so Android Chrome & iOS Safari navigator.canShare({ files }) returns TRUE
+  const file = new File([json], `giz-report-${pkg.referenceNumber}.txt`, { type: 'text/plain' })
 
-  // 1. Try native file sharing (supported on Android Chrome, iOS Safari 15.1+)
   if (typeof navigator !== 'undefined' && navigator.share) {
+    // 1. Primary: Try native file sharing via QuickShare / Bluetooth / AirDrop
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `Land dispute report with ${pkg.photos.length} photo(s). Open GIZ app to import.`,
+          text: `GIZ Report ${pkg.referenceNumber} (${pkg.photos.length} photos). Select QuickShare or Bluetooth to send.`,
           files: [file],
         })
-        addSyncLog(`P2P Share: Citizen shared full report ${pkg.referenceNumber} (${pkg.photos.length} photos, audio: ${!!pkg.audio}) via native file share`)
+        addSyncLog(`P2P Share: Citizen shared full report ${pkg.referenceNumber} via native QuickShare / Bluetooth file share`)
         return 'shared'
       } catch (err: any) {
         if (err.name === 'AbortError') return 'cancelled'
-        console.warn('Native file share error, falling back to download:', err)
+        console.warn('Native file share cancelled or failed, trying text share:', err)
       }
+    }
+
+    // 2. Secondary fallback: Share full report content via native text share (triggers QuickShare / Bluetooth text tray!)
+    try {
+      await navigator.share({
+        title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
+        text: `[GIZ-REPORT-FULL]\n${json}`,
+      })
+      addSyncLog(`P2P Share: Citizen shared full report ${pkg.referenceNumber} via native QuickShare text share`)
+      return 'shared'
+    } catch (err: any) {
+      if (err.name === 'AbortError') return 'cancelled'
+      console.warn('Native text share error:', err)
     }
   }
 
-  // 2. Fallback: Download file directly so user has the .giz.json file to send via OS Bluetooth or import
+  // 3. Desktop / non-mobile fallback: Download file directly
   downloadReportFile(pkg)
   return 'downloaded'
 }
@@ -111,16 +124,17 @@ export type ImportResult =
   | { success: false; error: string }
 
 /**
- * Imports a .giz.json file received from the citizen via Bluetooth/AirDrop.
+ * Imports a .txt or .giz.json file received from the citizen via QuickShare / Bluetooth / AirDrop.
  * Includes photos and audio. Saves everything to officer's local IndexedDB.
  */
 export async function importReceivedFile(file: File): Promise<ImportResult> {
   try {
     const text = await file.text()
-    const pkg = JSON.parse(text) as ReportPackage
+    const cleanText = text.trim().replace(/^\[GIZ-REPORT-FULL\]\n?/, '')
+    const pkg = JSON.parse(cleanText) as ReportPackage
 
-    if (!pkg || pkg.version !== 2 || !pkg.referenceNumber) {
-      return { success: false, error: 'Invalid report file. Make sure you selected the .giz.json file received from the citizen.' }
+    if (!pkg || !pkg.referenceNumber) {
+      return { success: false, error: 'Invalid report file. Make sure you selected the report file received from the citizen.' }
     }
 
     return await _saveImportedReport({
@@ -137,19 +151,35 @@ export async function importReceivedFile(file: File): Promise<ImportResult> {
 }
 
 /**
- * Officer pastes the compact sync code received via Bluetooth text share.
- * Photos and audio NOT included (text-only fallback).
+ * Officer pastes the sync code or full report text received via QuickShare / Bluetooth.
  */
 export async function importReceivedReport(rawText: string): Promise<ImportResult> {
   try {
-    const syncCode = rawText.trim().replace(/^\[GIZ-REPORT\]\n?/, '')
+    const trimmed = rawText.trim()
 
+    // 1. Full report package with photos & audio
+    if (trimmed.includes('[GIZ-REPORT-FULL]')) {
+      const jsonStr = trimmed.replace(/^\[GIZ-REPORT-FULL\]\n?/, '')
+      const pkg = JSON.parse(jsonStr) as ReportPackage
+      if (pkg && pkg.referenceNumber) {
+        return await _saveImportedReport({
+          referenceNumber: pkg.referenceNumber,
+          parcelId: pkg.parcelId || 'UNKNOWN',
+          category: pkg.category || 'other',
+          note: pkg.note || '',
+          photos: pkg.photos || [],
+          audio: pkg.audio || null,
+        })
+      }
+    }
+
+    // 2. Compact report code fallback
+    const syncCode = trimmed.replace(/^\[GIZ-REPORT\]\n?/, '')
     if (!syncCode) {
       return { success: false, error: 'Empty sync code. Please paste the full text received from the citizen device.' }
     }
 
     const payload = parseSyncPayload(syncCode)
-
     if (!payload || !payload.id) {
       return { success: false, error: 'Invalid report code. Make sure you pasted the entire text message received from the citizen.' }
     }
