@@ -27,6 +27,16 @@ function AppContent() {
   
   // State for visual P2P Sync Manager Modal
   const [showP2PSync, setShowP2PSync] = useState(false)
+  const [activeShareData, setActiveShareData] = useState<any>(null)
+
+  const handleTriggerP2PSync = (shareData?: any) => {
+    if (shareData) {
+      setActiveShareData(shareData)
+    } else {
+      setActiveShareData(null)
+    }
+    setShowP2PSync(true)
+  }
 
   useEffect(() => {
     preloadAndCacheAll()
@@ -76,7 +86,7 @@ function AppContent() {
         <Header
           mode="citizen"
           onSelectMode={handleSelectMode}
-          onTriggerP2PSync={() => setShowP2PSync(true)}
+          onTriggerP2PSync={() => handleTriggerP2PSync()}
           highContrast={highContrast}
           onToggleHighContrast={() => setHighContrast(!highContrast)}
           iconOnlyNav={iconOnlyNav}
@@ -96,7 +106,7 @@ function AppContent() {
       <Header
         mode={view.mode}
         onSelectMode={handleSelectMode}
-        onTriggerP2PSync={() => setShowP2PSync(true)}
+        onTriggerP2PSync={() => handleTriggerP2PSync()}
         highContrast={highContrast}
         onToggleHighContrast={() => setHighContrast(!highContrast)}
         iconOnlyNav={iconOnlyNav}
@@ -106,12 +116,12 @@ function AppContent() {
       <main className="flex-1 flex flex-col">
         {view.mode === 'admin' && <AdminDashboardScreen />}
         {view.mode === 'field-officer' && (
-          <FieldOfficerScreen onTriggerP2PSync={() => setShowP2PSync(true)} />
+          <FieldOfficerScreen onTriggerP2PSync={() => handleTriggerP2PSync()} />
         )}
         {view.mode === 'citizen' && view.screen === 'parcel-lookup' && <ParcelLookupScreen />}
         {view.mode === 'citizen' && view.screen === 'land-use-explainer' && <LandUseExplainerScreen />}
         {view.mode === 'citizen' && view.screen === 'dispute-form' && (
-          <DisputeFormScreen onTriggerP2PSync={() => setShowP2PSync(true)} />
+          <DisputeFormScreen onTriggerP2PSync={(shareData) => handleTriggerP2PSync(shareData)} />
         )}
         {view.mode === 'citizen' && view.screen === 'case-status' && <CaseStatusScreen />}
       </main>
@@ -128,10 +138,14 @@ function AppContent() {
       {showP2PSync && (
         <P2PSyncManager 
           role={view.mode} 
-          onClose={() => setShowP2PSync(false)} 
+          onClose={() => {
+            setShowP2PSync(false)
+            setActiveShareData(null)
+          }} 
           onSyncSuccess={() => {
             // Reload action
           }}
+          activeShareData={activeShareData}
         />
       )}
     </div>

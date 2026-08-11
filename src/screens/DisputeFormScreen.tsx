@@ -168,7 +168,14 @@ function initialState() {
 }
 
 type DisputeFormScreenProps = {
-  onTriggerP2PSync?: () => void
+  onTriggerP2PSync?: (shareData?: {
+    referenceNumber: string
+    parcelId: string
+    category: string
+    note: string
+    photos: string[]
+    audio: string | null
+  }) => void
 }
 
 export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps = {}) {
@@ -465,7 +472,16 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
         <button
           type="button"
           onClick={() => {
-            if (onTriggerP2PSync) onTriggerP2PSync()
+            if (onTriggerP2PSync) {
+              onTriggerP2PSync({
+                referenceNumber: referenceNumber ?? '',
+                parcelId: selectedParcelId,
+                category: category ?? 'other',
+                note: note,
+                photos: photos,
+                audio: audio,
+              })
+            }
           }}
           className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm shadow-md transition-all cursor-pointer border border-blue-500"
         >

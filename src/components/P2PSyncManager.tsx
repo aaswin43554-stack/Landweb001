@@ -9,17 +9,37 @@ type Props = {
   role: 'citizen' | 'field-officer' | 'admin'
   onClose: () => void
   onSyncSuccess?: () => void
+  activeShareData?: {
+    referenceNumber: string
+    parcelId: string
+    category: string
+    note: string
+    photos: string[]
+    audio: string | null
+  } | null
 }
 
 type OfficerState = 'idle' | 'importing' | 'success' | 'error'
 type OfficerMethod = 'qr' | 'file' | 'pin' | 'paste'
 
-async function buildAndStorePin(): Promise<{ pin: string; compact: string }> {
-  const queue = await getDisputeQueue()
-  const latest = queue[0]
-  const payload = latest
-    ? buildSyncPayload({ referenceNumber: latest.referenceNumber, parcelId: latest.parcelId, category: latest.category as any, note: latest.note, photos: latest.photos ?? [], audio: latest.audio ?? null })
-    : buildSyncPayload({ referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`, parcelId: 'DEMO-PARCEL-0001', category: 'boundary', note: 'Land dispute reported offline', photos: [], audio: null })
+async function buildAndStorePin(activeShareData?: Props['activeShareData']): Promise<{ pin: string; compact: string }> {
+  let payload;
+  if (activeShareData) {
+    payload = buildSyncPayload({
+      referenceNumber: activeShareData.referenceNumber,
+      parcelId: activeShareData.parcelId,
+      category: activeShareData.category as any,
+      note: activeShareData.note,
+      photos: activeShareData.photos ?? [],
+      audio: activeShareData.audio ?? null,
+    })
+  } else {
+    const queue = await getDisputeQueue()
+    const latest = queue[0]
+    payload = latest
+      ? buildSyncPayload({ referenceNumber: latest.referenceNumber, parcelId: latest.parcelId, category: latest.category as any, note: latest.note, photos: latest.photos ?? [], audio: latest.audio ?? null })
+      : buildSyncPayload({ referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`, parcelId: 'DEMO-PARCEL-0001', category: 'boundary', note: 'Land dispute reported offline', photos: [], audio: null })
+  }
 
   const compact = encodeCompact(payload)
   const pin = generateVisualPin(compact)
@@ -34,7 +54,7 @@ async function buildAndStorePin(): Promise<{ pin: string; compact: string }> {
   return { pin, compact }
 }
 
-export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
+export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }: Props) {
   const [pin, setPin] = useState('')
   const [compact, setCompact] = useState('')
   const [pinReady, setPinReady] = useState(false)
@@ -54,18 +74,34 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess }: Props) {
 
   useMemo(() => {
     if (role !== 'citizen') return
-    buildAndStorePin().then(({ pin: p, compact: c }) => { setPin(p); setCompact(c); setPinReady(true) })
-    getDisputeQueue().then(q => {
-      const latest = q[0]
-      if (latest) {
-        setHasPhotos((latest.photos?.length ?? 0) > 0)
-        setHasAudio(!!latest.audio)
-      }
-    })
-  }, [role])
+    buildAndStorePin(activeShareData).then(({ pin: p, compact: c }) => { setPin(p); setCompact(c); setPinReady(true) })
+    if (activeShareData) {
+      setHasPhotos((activeShareData.photos?.length ?? 0) > 0)
+      setHasAudio(!!activeShareData.audio)
+    } else {
+      getDisputeQueue().then(q => {
+        const latest = q[0]
+        if (latest) {
+          setHasPhotos((latest.photos?.length ?? 0) > 0)
+          setHasAudio(!!latest.audio)
+        }
+      })
+    }
+  }, [role, activeShareData])
 
   async function handleCitizenShareWithMedia() {
-    const pkg = await buildReportPackage()
+    const pkg = activeShareData
+      ? {
+          version: 2 as const,
+          referenceNumber: activeShareData.referenceNumber,
+          parcelId: activeShareData.parcelId,
+          category: activeShareData.category,
+          note: activeShareData.note,
+          photos: activeShareData.photos ?? [],
+          audio: activeShareData.audio ?? null,
+          timestamp: Date.now(),
+        }
+      : await buildReportPackage()
     if (!pkg) return
     await shareFullReportAsFile(pkg)
   }
