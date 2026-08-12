@@ -191,16 +191,16 @@ export function AdminDashboardScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 relative pb-16">
-      
-      {/* Top Banner */}
-      <div className="bg-slate-900 text-white px-4 py-5 shadow-sm">
-        <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
+    <div className="flex-1 flex flex-col bg-slate-50 min-h-0">
+
+      {/* Top Banner — full width */}
+      <div className="bg-slate-900 text-white px-4 py-4 shadow-sm shrink-0">
+        <div className="flex items-center justify-between max-w-[1400px] mx-auto w-full">
           <div>
-            <h2 className="text-xl font-black flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-black flex items-center gap-2">
               📊 Land Registry Administrator Console
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Village Chief Dashboard & Cadastral Database Editor</p>
+            <p className="text-xs text-slate-400 mt-0.5">Village Chief Dashboard &amp; Cadastral Database Editor</p>
           </div>
           <button
             type="button"
@@ -212,139 +212,27 @@ export function AdminDashboardScreen() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col gap-6 px-4 py-6 max-w-4xl mx-auto w-full">
-        
-        {/* Analytics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Total Parcels</p>
-            <p className="text-3xl font-black text-slate-800 mt-1">{stats.total}</p>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-            <p className="text-[10px] font-bold text-red-500 uppercase">Active Disputes</p>
-            <p className="text-3xl font-black text-red-600 mt-1">{stats.activeDisputes}</p>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-            <p className="text-[10px] font-bold text-emerald-500 uppercase">Registered Clean</p>
-            <p className="text-3xl font-black text-emerald-700 mt-1">{stats.resolvedCases}</p>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-            <p className="text-[10px] font-bold text-amber-500 uppercase">Pending Review</p>
-            <p className="text-3xl font-black text-amber-700 mt-1">{stats.pendingCount}</p>
-          </div>
-        </div>
+      {/* ── Tablet 2-panel layout ── */}
+      <div className="flex-1 flex flex-row min-h-0 max-w-[1400px] mx-auto w-full">
 
-        {/* SVG Charts Block */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Pie/Donut Zoning Chart */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col items-center gap-3">
-            <h3 className="text-sm font-bold text-slate-700 self-start">Zoning Classification Share</h3>
-            <div className="flex items-center justify-center gap-6 w-full py-2">
-              <svg className="w-32 h-32 transform -rotate-90 shrink-0">
-                {(() => {
-                  const data = [
-                    { zone: 'forest', value: stats.zoningCounts.forest, color: '#059669' },
-                    { zone: 'agricultural', value: stats.zoningCounts.agricultural, color: '#d97706' },
-                    { zone: 'residential', value: stats.zoningCounts.residential, color: '#2563eb' },
-                    { zone: 'disputed', value: stats.zoningCounts.disputed, color: '#dc2626' }
-                  ].filter(d => d.value > 0)
-                  
-                  const total = data.reduce((sum, d) => sum + d.value, 0)
-                  let cumulativePercent = 0
-                  
-                  return data.map((d, i) => {
-                    const percent = d.value / total
-                    const strokeDasharray = `${percent * 2 * Math.PI * 40} ${2 * Math.PI * 40}`
-                    const strokeDashoffset = `-${cumulativePercent * 2 * Math.PI * 40}`
-                    cumulativePercent += percent
-                    
-                    return (
-                      <circle
-                        key={i}
-                        cx="56"
-                        cy="56"
-                        r="40"
-                        className="fill-none stroke-current"
-                        style={{ color: d.color }}
-                        strokeWidth="16"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                      />
-                    )
-                  })
-                })()}
-                <circle cx="56" cy="56" r="28" fill="#ffffff" />
-              </svg>
-              
-              <div className="flex flex-col gap-1.5 text-xs text-slate-700 w-full">
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600 block shrink-0" />Forest</span>
-                  <span>{stats.zoningCounts.forest} plots</span>
-                </div>
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 block shrink-0" />Farmland</span>
-                  <span>{stats.zoningCounts.agricultural} plots</span>
-                </div>
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600 block shrink-0" />Homes</span>
-                  <span>{stats.zoningCounts.residential} plots</span>
-                </div>
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600 block shrink-0" />Disputed</span>
-                  <span>{stats.zoningCounts.disputed} plots</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* ── LEFT SIDEBAR (tablet+) ── */}
+        <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-slate-200 bg-white overflow-y-auto">
+          <div className="flex flex-col gap-5 p-4">
 
-          {/* Bar Chart Dispute status */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
-            <h3 className="text-sm font-bold text-slate-700">Dispute Status Distribution</h3>
-            <div className="flex-1 flex items-end justify-between gap-6 h-36 px-4 border-b border-slate-100 pb-2">
-              {(() => {
-                const data = [
-                  { label: 'Submitted', count: stats.pendingCount + stats.activeDisputes / 2, color: 'bg-blue-500' },
-                  { label: 'In Review', count: stats.activeDisputes / 2, color: 'bg-amber-500' },
-                  { label: 'Resolved', count: stats.resolvedCases, color: 'bg-emerald-500' }
-                ]
-                const max = Math.max(...data.map(d => d.count)) || 1
-                
-                return data.map((d, idx) => {
-                  const height = `${(d.count / max) * 100}%`
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                      <span className="text-xs font-black text-slate-700">{Math.round(d.count)}</span>
-                      <div className={`w-full rounded-t-lg ${d.color} transition-all duration-500`} style={{ height }} />
-                      <span className="text-[10px] text-slate-500 truncate font-semibold">{d.label}</span>
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-          </div>
-        </div>
-
-        {/* Database Search & List Panel */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
-            <h3 className="text-sm font-black text-slate-800">Parcels Database Manager</h3>
-            <div className="flex gap-2 w-full sm:w-auto shrink-0">
-              {/* Search Bar */}
-              <div className="relative flex-1 sm:w-48 bg-white border-2 border-slate-350 rounded-xl px-3 py-1.5 text-xs font-semibold focus-within:border-emerald-500">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ID/village..."
-                  className="w-full focus:outline-none bg-transparent"
-                />
-              </div>
-
-              {/* Village selector */}
+            {/* Sidebar: Filters */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Filters</p>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search ID / village…"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:border-emerald-500"
+              />
               <select
                 value={villageFilter}
                 onChange={(e) => setVillageFilter(e.target.value)}
-                className="bg-white border-2 border-slate-350 rounded-xl px-2 py-1.5 text-xs font-bold"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs bg-slate-50"
               >
                 <option value="all">All Villages</option>
                 {villages.map((v) => (
@@ -352,92 +240,253 @@ export function AdminDashboardScreen() {
                 ))}
               </select>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-100 text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <th className="p-3 font-extrabold">Parcel ID</th>
-                  <th className="p-3 font-extrabold">Village</th>
-                  <th className="p-3 font-extrabold">Zoning</th>
-                  <th className="p-3 font-extrabold">Status</th>
-                  <th className="p-3 font-extrabold">Location</th>
-                  <th className="p-3 font-extrabold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isLoading && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-slate-400 py-10 font-bold">Loading parcel registry...</td>
-                  </tr>
-                )}
-                {!isLoading && filteredParcels.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-slate-400 py-10 font-bold">No parcels match search criteria.</td>
-                  </tr>
-                )}
-                {filteredParcels.map((parcel) => {
-                  const style = ZONE_COLORS[parcel.zone_type]
-                  const status = STATUS_COLORS[parcel.status]
-                  const ZoneIcon = ZONE_ICONS[parcel.zone_type]
-                  
-                  return (
-                    <tr key={parcel.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-mono font-bold text-slate-800">{parcel.id}</td>
-                      <td className="p-3 font-semibold text-slate-700">{parcel.demo_village_name}</td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${style.bg} ${style.text} font-bold border border-slate-200/50`}>
-                          <ZoneIcon className="w-3.5 h-3.5" />
-                          {t(`zone.${parcel.zone_type}`)}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${status.bg} ${status.text} font-bold border ${status.border}`}>
-                          {t(`status.${parcel.status}`)}
-                        </span>
-                      </td>
-                      <td className="p-3 font-mono text-[10px] text-slate-400">
-                        {parcel.geo_coords.lat.toFixed(4)}, {parcel.geo_coords.lng.toFixed(4)}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(parcel)}
-                          className="bg-slate-100 text-slate-700 font-bold border border-slate-300 rounded-lg px-2.5 py-1 text-xs hover:bg-slate-200 active:scale-95 transition-all cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Sync logs timeline */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
-          <h3 className="text-sm font-black text-slate-800">Registry Log Ledger (Audit Trail)</h3>
-          <div className="h-44 overflow-y-auto border border-slate-150 rounded-xl p-3 bg-slate-50 font-mono text-[11px] text-slate-650 flex flex-col gap-1.5">
-            {syncLogs.map((log, idx) => (
-              <div key={idx} className="border-b border-slate-100/50 pb-1 flex items-start gap-1">
-                <span className="text-emerald-700 font-extrabold shrink-0">►</span>
-                <span>{log}</span>
+            {/* Sidebar: Quick Stats */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Quick Stats</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Total</p>
+                  <p className="text-2xl font-black text-slate-800">{stats.total}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                  <p className="text-[9px] font-bold text-red-400 uppercase">Disputes</p>
+                  <p className="text-2xl font-black text-red-600">{stats.activeDisputes}</p>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                  <p className="text-[9px] font-bold text-emerald-500 uppercase">Clean</p>
+                  <p className="text-2xl font-black text-emerald-700">{stats.resolvedCases}</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                  <p className="text-[9px] font-bold text-amber-500 uppercase">Pending</p>
+                  <p className="text-2xl font-black text-amber-700">{stats.pendingCount}</p>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
+            {/* Sidebar: Zone breakdown */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">By Zone</p>
+              {(['forest', 'agricultural', 'residential', 'disputed'] as const).map((zone) => {
+                const colors = ZONE_COLORS[zone]
+                const Icon = ZONE_ICONS[zone]
+                const pct = stats.total > 0 ? Math.round((stats.zoningCounts[zone] / stats.total) * 100) : 0
+                return (
+                  <div key={zone} className="flex items-center gap-2">
+                    <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: colors.ring }} />
+                    <div className="flex-1 flex flex-col gap-0.5">
+                      <div className="flex justify-between text-[10px] font-semibold text-slate-600">
+                        <span className="capitalize">{zone}</span>
+                        <span>{stats.zoningCounts[zone]}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: colors.ring }} />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Sidebar: Audit Log */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Audit Log</p>
+              <div className="h-52 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50 font-mono text-[10px] text-slate-600 flex flex-col gap-1">
+                {syncLogs.length === 0 && <span className="text-slate-300">No log entries yet.</span>}
+                {syncLogs.map((log, idx) => (
+                  <div key={idx} className="border-b border-slate-100/70 pb-1 flex items-start gap-1">
+                    <span className="text-emerald-600 font-black shrink-0">►</span>
+                    <span>{log}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </aside>
+
+        {/* ── MAIN PANEL ── */}
+        <main className="flex-1 flex flex-col gap-5 p-4 md:p-6 overflow-y-auto">
+
+          {/* Stats grid — mobile only (sidebar handles tablet) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Parcels</p>
+              <p className="text-3xl font-black text-slate-800 mt-1">{stats.total}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+              <p className="text-[10px] font-bold text-red-500 uppercase">Active Disputes</p>
+              <p className="text-3xl font-black text-red-600 mt-1">{stats.activeDisputes}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+              <p className="text-[10px] font-bold text-emerald-500 uppercase">Registered Clean</p>
+              <p className="text-3xl font-black text-emerald-700 mt-1">{stats.resolvedCases}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+              <p className="text-[10px] font-bold text-amber-500 uppercase">Pending Review</p>
+              <p className="text-3xl font-black text-amber-700 mt-1">{stats.pendingCount}</p>
+            </div>
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Donut Chart */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col items-center gap-3">
+              <h3 className="text-sm font-bold text-slate-700 self-start">Zoning Classification Share</h3>
+              <div className="flex items-center justify-center gap-6 w-full py-2">
+                <svg className="w-32 h-32 transform -rotate-90 shrink-0">
+                  {(() => {
+                    const data = [
+                      { zone: 'forest', value: stats.zoningCounts.forest, color: '#059669' },
+                      { zone: 'agricultural', value: stats.zoningCounts.agricultural, color: '#d97706' },
+                      { zone: 'residential', value: stats.zoningCounts.residential, color: '#2563eb' },
+                      { zone: 'disputed', value: stats.zoningCounts.disputed, color: '#dc2626' }
+                    ].filter(d => d.value > 0)
+                    const total = data.reduce((sum, d) => sum + d.value, 0)
+                    let cumulativePercent = 0
+                    return data.map((d, i) => {
+                      const percent = d.value / total
+                      const strokeDasharray = `${percent * 2 * Math.PI * 40} ${2 * Math.PI * 40}`
+                      const strokeDashoffset = `-${cumulativePercent * 2 * Math.PI * 40}`
+                      cumulativePercent += percent
+                      return (
+                        <circle key={i} cx="56" cy="56" r="40" className="fill-none stroke-current"
+                          style={{ color: d.color }} strokeWidth="16"
+                          strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} />
+                      )
+                    })
+                  })()}
+                  <circle cx="56" cy="56" r="28" fill="#ffffff" />
+                </svg>
+                <div className="flex flex-col gap-1.5 text-xs text-slate-700 w-full">
+                  <div className="flex items-center justify-between font-semibold"><span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600 block shrink-0" />Forest</span><span>{stats.zoningCounts.forest} plots</span></div>
+                  <div className="flex items-center justify-between font-semibold"><span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 block shrink-0" />Farmland</span><span>{stats.zoningCounts.agricultural} plots</span></div>
+                  <div className="flex items-center justify-between font-semibold"><span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600 block shrink-0" />Homes</span><span>{stats.zoningCounts.residential} plots</span></div>
+                  <div className="flex items-center justify-between font-semibold"><span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600 block shrink-0" />Disputed</span><span>{stats.zoningCounts.disputed} plots</span></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3">
+              <h3 className="text-sm font-bold text-slate-700">Dispute Status Distribution</h3>
+              <div className="flex-1 flex items-end justify-between gap-6 h-36 px-4 border-b border-slate-100 pb-2">
+                {(() => {
+                  const data = [
+                    { label: 'Submitted', count: stats.pendingCount + stats.activeDisputes / 2, color: 'bg-blue-500' },
+                    { label: 'In Review', count: stats.activeDisputes / 2, color: 'bg-amber-500' },
+                    { label: 'Resolved', count: stats.resolvedCases, color: 'bg-emerald-500' }
+                  ]
+                  const max = Math.max(...data.map(d => d.count)) || 1
+                  return data.map((d, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                      <span className="text-xs font-black text-slate-700">{Math.round(d.count)}</span>
+                      <div className={`w-full rounded-t-lg ${d.color} transition-all duration-500`} style={{ height: `${(d.count / max) * 100}%` }} />
+                      <span className="text-[10px] text-slate-500 truncate font-semibold">{d.label}</span>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* Parcel Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+              <h3 className="text-sm font-black text-slate-800">Parcels Database Manager
+                <span className="ml-2 text-xs font-semibold text-slate-400">({filteredParcels.length} records)</span>
+              </h3>
+              {/* Mobile-only filters (sidebar covers tablet+) */}
+              <div className="flex gap-2 w-full sm:w-auto shrink-0 md:hidden">
+                <div className="relative flex-1 sm:w-48 bg-white border-2 border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold focus-within:border-emerald-500">
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search ID/village..." className="w-full focus:outline-none bg-transparent" />
+                </div>
+                <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)}
+                  className="bg-white border-2 border-slate-300 rounded-xl px-2 py-1.5 text-xs font-bold">
+                  <option value="all">All Villages</option>
+                  {villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <th className="p-3 font-extrabold">Parcel ID</th>
+                    <th className="p-3 font-extrabold">Village</th>
+                    <th className="p-3 font-extrabold">Zoning</th>
+                    <th className="p-3 font-extrabold">Status</th>
+                    <th className="p-3 font-extrabold hidden md:table-cell">Location</th>
+                    <th className="p-3 font-extrabold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {isLoading && (
+                    <tr><td colSpan={6} className="text-center text-slate-400 py-10 font-bold">Loading parcel registry...</td></tr>
+                  )}
+                  {!isLoading && filteredParcels.length === 0 && (
+                    <tr><td colSpan={6} className="text-center text-slate-400 py-10 font-bold">No parcels match search criteria.</td></tr>
+                  )}
+                  {filteredParcels.map((parcel) => {
+                    const style = ZONE_COLORS[parcel.zone_type]
+                    const status = STATUS_COLORS[parcel.status]
+                    const ZoneIcon = ZONE_ICONS[parcel.zone_type]
+                    return (
+                      <tr key={parcel.id} className="hover:bg-slate-50/50">
+                        <td className="p-3 font-mono font-bold text-slate-800">{parcel.id}</td>
+                        <td className="p-3 font-semibold text-slate-700">{parcel.demo_village_name}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${style.bg} ${style.text} font-bold border border-slate-200/50`}>
+                            <ZoneIcon className="w-3.5 h-3.5" />
+                            {t(`zone.${parcel.zone_type}`)}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${status.bg} ${status.text} font-bold border ${status.border}`}>
+                            {t(`status.${parcel.status}`)}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[10px] text-slate-400 hidden md:table-cell">
+                          {parcel.geo_coords.lat.toFixed(4)}, {parcel.geo_coords.lng.toFixed(4)}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button type="button" onClick={() => handleOpenEdit(parcel)}
+                            className="bg-slate-100 text-slate-700 font-bold border border-slate-300 rounded-lg px-2.5 py-1 text-xs hover:bg-slate-200 active:scale-95 transition-all cursor-pointer">
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Sync Log — mobile only */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3 md:hidden">
+            <h3 className="text-sm font-black text-slate-800">Registry Log Ledger (Audit Trail)</h3>
+            <div className="h-44 overflow-y-auto border border-slate-150 rounded-xl p-3 bg-slate-50 font-mono text-[11px] text-slate-650 flex flex-col gap-1.5">
+              {syncLogs.map((log, idx) => (
+                <div key={idx} className="border-b border-slate-100/50 pb-1 flex items-start gap-1">
+                  <span className="text-emerald-700 font-extrabold shrink-0">►</span>
+                  <span>{log}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </main>
       </div>
 
       {/* Add Parcel Drawer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-4">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 px-4 pb-4">
           <form
             onSubmit={handleAddSubmit}
-            className="w-full max-w-md rounded-3xl bg-white p-5 flex flex-col gap-4 shadow-xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md md:max-w-2xl rounded-3xl bg-white p-5 md:p-7 flex flex-col gap-4 shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-800">Register New Cadastral Parcel</h3>
@@ -551,10 +600,10 @@ export function AdminDashboardScreen() {
 
       {/* Edit Parcel Drawer Modal */}
       {showEditModal && selectedParcel && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-4">
+        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50 px-4 pb-4">
           <form
             onSubmit={handleEditSubmit}
-            className="w-full max-w-md rounded-3xl bg-white p-5 flex flex-col gap-4 shadow-xl max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md md:max-w-2xl rounded-3xl bg-white p-5 md:p-7 flex flex-col gap-4 shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
@@ -664,7 +713,6 @@ export function AdminDashboardScreen() {
           </form>
         </div>
       )}
-
     </div>
   )
 }

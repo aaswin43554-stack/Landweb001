@@ -178,6 +178,8 @@ type DisputeFormScreenProps = {
   }) => void
 }
 
+const DRAFT_KEY = 'giz-dispute-draft'
+
 export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps = {}) {
   const { t, language } = useTranslations()
   const [villages, setVillages] = useState<Village[]>([])
@@ -189,6 +191,8 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
   const [cameraActive, setCameraActive] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(0)
+  // Draft banner state
+  const [draftRestored, setDraftRestored] = useState(false)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const recognitionRef = useRef<any>(null)
@@ -197,7 +201,40 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
   const recordingTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    fetchVillages().then(setVillages)
+    fetchVillages().then((loadedVillages) => {
+      setVillages(loadedVillages)
+      // ── Draft restore: runs after villages are loaded so parcel data can be reloaded ──
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY)
+        if (raw) {
+          const saved = JSON.parse(raw)
+          // Only restore if there was actual progress (village selected)
+          if (saved.selectedVillageId) {
+            // Restore text fields + step (not photos/audio — too large for localStorage)
+            setState((s) => ({
+              ...s,
+              step: saved.step ?? 0,
+              selectedVillageId: saved.selectedVillageId ?? '',
+              selectedParcelId: saved.selectedParcelId ?? '',
+              category: saved.category ?? null,
+              note: saved.note ?? '',
+            }))
+            // Reload parcels for the saved village
+            if (saved.selectedVillageId) {
+              import('../lib/land').then(({ fetchParcelsByVillage }) => {
+                fetchParcelsByVillage(saved.selectedVillageId).then((fetched) => {
+                  setState((s) => ({ ...s, parcels: fetched }))
+                })
+              })
+            }
+            setDraftRestored(true)
+          }
+        }
+      } catch {
+        // Corrupt draft — ignore
+        localStorage.removeItem(DRAFT_KEY)
+      }
+    })
 
     // Cleanups
     return () => {
@@ -206,6 +243,17 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
     }
   }, [])
+
+  // ── Auto-save draft whenever form fields change ──────────────────────────────
+  useEffect(() => {
+    // Don't save if form is complete or never started
+    if (referenceNumber) return
+    if (!selectedVillageId && step === 0) return
+    try {
+      const draft = { step, selectedVillageId, selectedParcelId, category, note }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch { /* storage full — ignore */ }
+  }, [step, selectedVillageId, selectedParcelId, category, note, referenceNumber])
 
   async function handleVillageChange(villageId: string) {
     setState((s) => ({ ...s, selectedVillageId: villageId, selectedParcelId: '', parcels: [] }))
@@ -237,6 +285,8 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
       return
     }
     setState((s) => ({ ...s, isSubmitting: false, referenceNumber: result.fakeReferenceNumber, wasQueued: result.queued }))
+    // Clear draft after successful submit
+    try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ }
   }
 
   // Speech to Text Notes
@@ -509,6 +559,33 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
       </div>
 
       <StepDots step={step} />
+
+      {/* Draft Restored Banner */}
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-amber-800 animate-in fade-in slide-in-from-top-1 duration-200">
+          <span>📝 Draft restored — continue from where you left off</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setState(initialState)
+                try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ }
+                setDraftRestored(false)
+              }}
+              className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
+            >
+              🗑️ Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftRestored(false)}
+              className="text-[10px] font-bold text-amber-700 hover:underline cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {step === 0 && (
         <div className="flex flex-col gap-4">
