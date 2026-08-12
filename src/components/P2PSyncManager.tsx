@@ -149,9 +149,9 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
     setIsSearchingDevice(false)
 
     if (res === 'shared') {
-      setCitizenShareMsg(`✅ ${preferredMethod === 'quickshare' ? 'QuickShare' : 'Bluetooth / AirDrop'} share panel opened! Select the Officer's device from the list.`)
-    } else if (res === 'downloaded' || res === 'unsupported') {
-      setCitizenShareMsg(`📥 Report file saved (giz-report-${pkg.referenceNumber}.giz.json)! Share this file with the Officer via QuickShare / Bluetooth in your phone's File Manager or select it in the Officer app.`)
+      setCitizenShareMsg(`✅ ${preferredMethod === 'quickshare' ? 'QuickShare' : 'Bluetooth / AirDrop'} panel opened! Select the Officer's device from the list.`)
+    } else if (res === 'downloaded') {
+      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)!\n⚠️ Note: Bluetooth/QuickShare sharing requires HTTPS. If this app is on HTTP, open it via the HTTPS link and try again — or send this downloaded file manually.`)
     }
   }
 
