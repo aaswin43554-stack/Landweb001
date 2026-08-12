@@ -352,11 +352,13 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                     <div className="flex flex-col gap-3">
                       <div className="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4 flex flex-col gap-3 text-center">
                         <span className="text-3xl">📂</span>
-                        <p className="text-sm font-extrabold text-emerald-800">Import report file from Citizen</p>
+                        <p className="text-sm font-extrabold text-emerald-800">Import Report File from Citizen</p>
                         <p className="text-xs text-emerald-700 font-semibold">
-                          Citizen sends a <strong>giz-report-xxx.txt</strong> file via Bluetooth/QuickShare. Once received, tap "Select File" — <strong>includes all photos and audio!</strong>
+                          Citizen sends a <strong>giz-report-xxx.txt</strong> file via Bluetooth/QuickShare. Once received, tap "Select File" below.
                         </p>
-                        <input ref={fileInputRef} type="file" accept="*" onChange={handleOfficerFileImport}
+                        <input ref={fileInputRef} type="file"
+                          accept="text/plain,text/*,.txt,.json,.giz.json,application/json,*/*"
+                          onChange={handleOfficerFileImport}
                           className="hidden" id="giz-file-import" />
                         <label htmlFor="giz-file-import"
                           className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98">
@@ -365,7 +367,7 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                               Importing...
                             </span>
-                          ) : <><span>📂</span> Select Received .giz.json File</>}
+                          ) : <><span>📂</span> Select Received File (.txt / .json)</>}
                         </label>
                       </div>
                     </div>
