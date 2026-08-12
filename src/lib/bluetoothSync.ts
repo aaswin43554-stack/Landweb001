@@ -82,61 +82,59 @@ export function downloadReportFile(pkg: ReportPackage): void {
  * Guarantees that the OS QuickShare / Bluetooth share panel opens on all mobile devices!
  */
 /**
- * Shares the FULL report via the phone's native Bluetooth / QuickShare / AirDrop share tray.
+ * Opens the Android / iOS native OS share sheet (QuickShare, Bluetooth, AirDrop…).
  *
- * KEY FIX: Uses text/plain MIME type with .giz.json filename — Android Chrome's
- * canShare() whitelist accepts text/plain, and the JSON content inside is fully
- * readable by the Officer app regardless of MIME type.
+ * Strategy:
+ *  1. Share as a .txt file (text/plain + .txt extension) — always accepted by canShare().
+ *  2. If file sharing is blocked, share slim metadata as text — always opens share sheet.
+ *  3. If navigator.share is unavailable (desktop/HTTP), download the file.
  *
- * REQUIRES HTTPS: navigator.share only works on secure (HTTPS) connections.
- * Falls back to file download if called over HTTP or on desktop browsers.
+ * The officer's importReceivedFile() handles both .txt and JSON text payloads.
  */
 export async function shareFullReportAsFile(pkg: ReportPackage): Promise<'shared' | 'cancelled' | 'downloaded'> {
   const json = JSON.stringify(pkg, null, 2)
 
-  // Use text/plain MIME so Android Chrome canShare() returns true,
-  // but keep .giz.json extension so the file is recognisable by the Officer app.
+  // .txt extension + text/plain MIME — guaranteed accepted by Android Chrome canShare()
   const file = new File(
-    [new Blob([json], { type: 'text/plain' })],
-    `giz-report-${pkg.referenceNumber}.giz.json`,
+    [json],
+    `giz-report-${pkg.referenceNumber}.txt`,
     { type: 'text/plain' }
   )
 
   if (typeof navigator !== 'undefined' && navigator.share) {
-    // Check if this browser / OS supports file sharing
-    const canShareFile = navigator.canShare ? navigator.canShare({ files: [file] }) : false
-
-    if (canShareFile) {
+    // 1. File share — opens share sheet with the file attachment (user picks QuickShare/Bluetooth)
+    if (navigator.canShare?.({ files: [file] })) {
       try {
-        // This opens the native OS share sheet (QuickShare / Bluetooth / AirDrop)
         await navigator.share({
           title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-          text: `GIZ Land Dispute Report (${pkg.referenceNumber})`,
+          text: `GIZ Report ${pkg.referenceNumber}`,
           files: [file],
         })
-        addSyncLog(`P2P Share: Shared report ${pkg.referenceNumber}.giz.json via native OS share panel`)
+        addSyncLog(`P2P: Shared report ${pkg.referenceNumber}.txt via OS share sheet`)
         return 'shared'
       } catch (err: any) {
         if (err.name === 'AbortError') return 'cancelled'
-        console.warn('File share failed, falling back to text share:', err)
+        console.warn('File share error:', err.name, err.message)
       }
     }
 
-    // Fallback: share as plain text — this ALWAYS opens Android QuickShare / Bluetooth tray
+    // 2. Text-only share — slim metadata only (no photos) so it's never too large
+    //    navigator.share({ title, text }) ALWAYS opens the Android share sheet
+    const slim = `GIZ-REPORT:${pkg.referenceNumber}|${pkg.parcelId}|${pkg.category}|${pkg.note}`
     try {
       await navigator.share({
         title: `GIZ Land Dispute — ${pkg.referenceNumber}`,
-        text: `[GIZ-REPORT-FULL]\n${json}`,
+        text: slim,
       })
-      addSyncLog(`P2P Share: Shared report content via native text share`)
+      addSyncLog(`P2P: Shared report ${pkg.referenceNumber} via text share`)
       return 'shared'
     } catch (err: any) {
       if (err.name === 'AbortError') return 'cancelled'
-      console.warn('Text share failed:', err)
+      console.warn('Text share error:', err.name, err.message)
     }
   }
 
-  // navigator.share unavailable (HTTP context or desktop) — download the file instead
+  // 3. No navigator.share (desktop / HTTP) — download file
   downloadReportFile(pkg)
   return 'downloaded'
 }
