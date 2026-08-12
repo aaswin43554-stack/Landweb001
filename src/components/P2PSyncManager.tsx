@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { importReceivedReport, importReceivedFile, shareFullReportAsFile, buildReportPackage } from '../lib/bluetoothSync'
+import { importReceivedReport, importReceivedFile, shareFullReportAsFile, downloadReportFile } from '../lib/bluetoothSync'
+import type { ReportPackage } from '../lib/bluetoothSync'
 import { buildSyncPayload, encodeCompact, generateVisualPin } from '../lib/syncPayload'
 import { getDisputeQueue } from '../lib/offlineStorage'
 import { supabase } from '../lib/supabaseClient'
@@ -109,9 +110,13 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
 
   async function handleCitizenShareWithMedia(preferredMethod: 'quickshare' | 'bluetooth' | 'download' = 'quickshare') {
     setCitizenShareMsg('')
-    setIsSearchingDevice(true)
 
-    let pkg = activeShareData && activeShareData.referenceNumber
+    // ─── Build package SYNCHRONOUSLY ────────────────────────────────────────
+    // CRITICAL: Android Chrome's Web Share API requires navigator.share() to be
+    // called within the user gesture activation window. Any await before share()
+    // (like IndexedDB queries) kills the gesture context → share silently fails.
+    // We build the package synchronously here so share() is called immediately.
+    const pkg: ReportPackage = activeShareData?.referenceNumber
       ? {
           version: 2 as const,
           referenceNumber: activeShareData.referenceNumber,
@@ -122,36 +127,37 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
           audio: activeShareData.audio ?? null,
           timestamp: Date.now(),
         }
-      : await buildReportPackage()
-
-    if (!pkg) {
-      pkg = {
-        version: 2 as const,
-        referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`,
-        parcelId: 'DEMO-PARCEL-0001',
-        category: 'boundary',
-        note: 'Land dispute report with offline media attachments',
-        photos: [],
-        audio: null,
-        timestamp: Date.now(),
-      }
-    }
+      : {
+          // No active dispute — demo package (no async IndexedDB needed)
+          version: 2 as const,
+          referenceNumber: `DEMO-DSP-${Date.now().toString().slice(-4)}`,
+          parcelId: 'DEMO-PARCEL-0001',
+          category: 'boundary',
+          note: 'Land dispute report (demo)',
+          photos: [],
+          audio: null,
+          timestamp: Date.now(),
+        }
 
     if (preferredMethod === 'download') {
-      const { downloadReportFile } = await import('../lib/bluetoothSync')
+      setIsSearchingDevice(true)
       downloadReportFile(pkg)
-      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! Share this file with the officer via QuickShare / Bluetooth in your phone's File Manager.`)
+      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! Share this file with the Officer via QuickShare / Bluetooth in your phone's File Manager.`)
       setIsSearchingDevice(false)
       return
     }
 
+    // ─── Share (called immediately — gesture context still valid) ────────────
+    setIsSearchingDevice(true)
     const res = await shareFullReportAsFile(pkg)
     setIsSearchingDevice(false)
 
     if (res === 'shared') {
-      setCitizenShareMsg(`✅ ${preferredMethod === 'quickshare' ? 'QuickShare' : 'Bluetooth / AirDrop'} panel opened! Select the Officer's device from the list.`)
-    } else if (res === 'downloaded') {
-      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)!\n⚠️ Note: Bluetooth/QuickShare sharing requires HTTPS. If this app is on HTTP, open it via the HTTPS link and try again — or send this downloaded file manually.`)
+      setCitizenShareMsg(`✅ ${preferredMethod === 'quickshare' ? 'QuickShare / Nearby Share' : 'Bluetooth / AirDrop'} panel opened! Select the Officer's device to send the report.`)
+    } else if (res === 'cancelled') {
+      setCitizenShareMsg(`↩️ Share cancelled. Tap the button again to retry.`)
+    } else {
+      setCitizenShareMsg(`📥 Report file downloaded (giz-report-${pkg.referenceNumber}.giz.json)! Import this file in the Officer app.`)
     }
   }
 
