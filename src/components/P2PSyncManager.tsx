@@ -271,13 +271,15 @@ export function P2PSyncManager({ role, onClose, onSyncSuccess, activeShareData }
                 <div className="flex flex-col gap-2">
                   <button type="button" onClick={() => handleCitizenShareWithMedia('quickshare')}
                     className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-sm shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
-                    <span>⚡</span> Send via QuickShare / Nearby Share
+                    <span>⚡</span> Open QuickShare / Nearby Share
                   </button>
+                  <p className="text-[10px] text-emerald-700 text-center -mt-1">↑ Tap → share sheet opens → select QuickShare or Nearby Share</p>
 
                   <button type="button" onClick={() => handleCitizenShareWithMedia('bluetooth')}
                     className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl text-xs shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2">
-                    <span>📶</span> Send via Bluetooth / AirDrop
+                    <span>📶</span> Open Bluetooth / AirDrop
                   </button>
+                  <p className="text-[10px] text-blue-700 text-center -mt-1">↑ Tap → share sheet opens → select Bluetooth or AirDrop</p>
 
                   <button type="button" onClick={() => handleCitizenShareWithMedia('download')}
                     className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-xl text-[11px] shadow transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5">
