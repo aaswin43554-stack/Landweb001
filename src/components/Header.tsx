@@ -233,7 +233,7 @@ export function Header({
             <button
               type="button"
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="flex items-center justify-center p-2 rounded-full border border-gray-350 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-250 active:scale-95 transition-all cursor-pointer"
+              className="flex items-center justify-center p-2 rounded-full border border-gray-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-200 active:scale-95 transition-all cursor-pointer"
               aria-label="Menu"
               aria-expanded={showMobileMenu}
             >
@@ -356,7 +356,7 @@ export function Header({
                     className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
                   >
                     <span className="flex items-center gap-2">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-550 dark:text-slate-400 shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 2v20a10 10 0 0 0 0-20z" fill="currentColor" />
                       </svg>
@@ -377,7 +377,7 @@ export function Header({
                     className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
                   >
                     <span className="flex items-center gap-2">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-550 dark:text-slate-400 shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0">
                         <rect x="3" y="3" width="18" height="18" rx="2" />
                         <line x1="3" y1="9" x2="21" y2="9" />
                         <line x1="9" y1="21" x2="9" y2="9" />
