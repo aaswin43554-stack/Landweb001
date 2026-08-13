@@ -219,12 +219,16 @@ export function Header({
         <div className="flex sm:hidden items-center gap-2">
           {/* Current account badge */}
           {user && (
-            <span className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-full px-2.5 py-1 font-extrabold max-w-[120px] truncate">
-              👤 {user.username}
+            <span className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-full px-2.5 py-1 font-extrabold max-w-[120px] truncate flex items-center gap-1">
+              <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-slate-500" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="12" cy="8" r="3.6" />
+                <path d="M5 20c0-4.1 3.1-6.7 7-6.7s7 2.6 7 6.7" />
+              </svg>
+              {user.username}
             </span>
           )}
           
-          {/* 3-dot Button and dropdown */}
+          {/* Hamburger Menu Button and dropdown */}
           <div className="relative" ref={mobileMenuRef}>
             <button
               type="button"
@@ -233,10 +237,10 @@ export function Header({
               aria-label="Menu"
               aria-expanded={showMobileMenu}
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="12" cy="12" r="2" />
-                <circle cx="12" cy="19" r="2" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
               </svg>
             </button>
 
@@ -251,9 +255,12 @@ export function Header({
                     onTriggerP2PSync();
                     setShowMobileMenu(false);
                   }}
-                  className="w-full flex items-center justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-2.5 rounded-xl text-xs shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+                  className="w-full flex items-center justify-start gap-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs shadow-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
                 >
-                  📶 P2P Sync
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5a5 5 0 0 1 0-7M19 12.5a5 5 0 0 0 0-7M8 15a3 3 0 0 1 0-4M16 15a3 3 0 0 0 0-4M12 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
+                  </svg>
+                  P2P Sync
                 </button>
 
                 {/* Account / Role Selection Selector */}
@@ -312,11 +319,30 @@ export function Header({
                       onToggleDarkMode();
                       setShowMobileMenu(false);
                     }}
-                    className="w-full flex items-center justify-between px-2 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
                   >
-                    <span className="flex items-center gap-1.5">🌓 Theme</span>
-                    <span className="text-[11px] text-emerald-700 dark:text-emerald-450">
-                      {darkMode ? '☀️ Light' : '🌙 Dark'}
+                    <span className="flex items-center gap-2">
+                      {darkMode ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-500 shrink-0">
+                          <circle cx="12" cy="12" r="5" />
+                          <line x1="12" y1="1" x2="12" y2="3" />
+                          <line x1="12" y1="21" x2="12" y2="23" />
+                          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                          <line x1="1" y1="12" x2="3" y2="12" />
+                          <line x1="21" y1="12" x2="23" y2="12" />
+                          <line x1="4.22" y1="18.36" x2="5.64" y2="16.93" />
+                          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-indigo-500 shrink-0">
+                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                      )}
+                      Theme
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase">
+                      {darkMode ? 'Light' : 'Dark'}
                     </span>
                   </button>
 
@@ -327,11 +353,17 @@ export function Header({
                       onToggleHighContrast();
                       setShowMobileMenu(false);
                     }}
-                    className="w-full flex items-center justify-between px-2 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
                   >
-                    <span className="flex items-center gap-1.5">♿ High Contrast</span>
-                    <span className="text-[11px]">
-                      {highContrast ? '✅ On' : '❌ Off'}
+                    <span className="flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-550 dark:text-slate-400 shrink-0">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 2v20a10 10 0 0 0 0-20z" fill="currentColor" />
+                      </svg>
+                      High Contrast
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase">
+                      {highContrast ? 'On' : 'Off'}
                     </span>
                   </button>
 
@@ -342,11 +374,18 @@ export function Header({
                       onToggleIconOnlyNav();
                       setShowMobileMenu(false);
                     }}
-                    className="w-full flex items-center justify-between px-2 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
                   >
-                    <span className="flex items-center gap-1.5">🖼️ Icon Nav</span>
-                    <span className="text-[11px]">
-                      {iconOnlyNav ? '✅ On' : '❌ Off'}
+                    <span className="flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-550 dark:text-slate-400 shrink-0">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <line x1="3" y1="9" x2="21" y2="9" />
+                        <line x1="9" y1="21" x2="9" y2="9" />
+                      </svg>
+                      Icon Nav
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase">
+                      {iconOnlyNav ? 'On' : 'Off'}
                     </span>
                   </button>
                 </div>
@@ -361,9 +400,12 @@ export function Header({
                         logout();
                         setShowMobileMenu(false);
                       }}
-                      className="w-full flex items-center justify-start gap-2 text-left px-2 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-start gap-2.5 text-left px-2.5 py-2.5 text-xs font-extrabold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
                     >
-                      🚪 Logout
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                      </svg>
+                      Logout
                     </button>
                   </>
                 )}
