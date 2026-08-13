@@ -24,6 +24,9 @@ function AppContent() {
   const [iconOnlyNav, setIconOnlyNav] = useState(() => {
     return localStorage.getItem('giz-a11y-icon-only-nav') === 'true'
   })
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('giz-dark-mode') === 'true'
+  })
   
   // State for visual P2P Sync Manager Modal
   const [showP2PSync, setShowP2PSync] = useState(false)
@@ -65,6 +68,11 @@ function AppContent() {
     localStorage.setItem('giz-a11y-icon-only-nav', String(iconOnlyNav))
   }, [iconOnlyNav])
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('giz-dark-mode', String(darkMode))
+  }, [darkMode])
+
   const handleSelectMode = (mode: 'citizen' | 'field-officer' | 'admin') => {
     if (mode === 'admin') {
       loginDirectly('admin')
@@ -91,6 +99,8 @@ function AppContent() {
           onToggleHighContrast={() => setHighContrast(!highContrast)}
           iconOnlyNav={iconOnlyNav}
           onToggleIconOnlyNav={() => setIconOnlyNav(!iconOnlyNav)}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
         />
         <main className="flex-1 flex flex-col">
           <LoginScreen />
@@ -111,6 +121,8 @@ function AppContent() {
         onToggleHighContrast={() => setHighContrast(!highContrast)}
         iconOnlyNav={iconOnlyNav}
         onToggleIconOnlyNav={() => setIconOnlyNav(!iconOnlyNav)}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(!darkMode)}
       />
 
       <main className="flex-1 flex flex-col">
