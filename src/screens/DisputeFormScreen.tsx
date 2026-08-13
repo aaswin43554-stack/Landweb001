@@ -552,10 +552,10 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
   const canGoNext = (step === 0 && Boolean(selectedParcelId)) || (step === 1 && Boolean(category)) || step === 2
 
   return (
-    <div className="flex-1 flex flex-col gap-4 px-4 py-5 max-w-lg mx-auto w-full overflow-y-auto">
+    <div className="flex-1 flex flex-col gap-4 px-3.5 sm:px-6 py-4 sm:py-6 max-w-lg sm:max-w-xl md:max-w-2xl mx-auto w-full overflow-y-auto">
       <div className="flex items-center gap-3">
         <FlagIcon className="w-8 h-8 text-emerald-700 shrink-0" />
-        <h2 className="text-xl font-bold">{t('nav.dispute_form')}</h2>
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800">{t('nav.dispute_form')}</h2>
       </div>
 
       <StepDots step={step} />
@@ -589,32 +589,43 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
 
       {step === 0 && (
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-bold">{t('dispute.step_parcel')}</h3>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight">{t('dispute.step_parcel')}</h3>
 
+          {/* Tactile Village Cards Grid */}
           <div className="flex flex-col gap-2">
-            <label htmlFor="dispute-village-select" className="font-semibold text-sm">
-              {t('lookup.village_label')}
+            <label className="font-extrabold text-sm text-slate-700 flex items-center justify-between">
+              <span>{t('lookup.village_label')}</span>
+              <span className="text-[11px] sm:text-xs font-semibold text-emerald-700">Tap your village:</span>
             </label>
-            <select
-              id="dispute-village-select"
-              value={selectedVillageId}
-              onChange={(e) => handleVillageChange(e.target.value)}
-              className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white focus:border-emerald-600 focus:outline-none"
-            >
-              <option value="">{t('lookup.village_placeholder')}</option>
-              {villages.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5">
+              {villages.map((v) => {
+                const isSelected = v.id === selectedVillageId
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleVillageChange(v.id)}
+                    className={`tactile-card p-3 flex items-center gap-2 text-left border-2 rounded-2xl transition-all cursor-pointer ${
+                      isSelected
+                        ? 'tactile-card-active border-emerald-700 bg-emerald-50 text-emerald-900 shadow-md scale-102 font-extrabold'
+                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-800 font-bold'
+                    }`}
+                  >
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 font-bold ${isSelected ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      📍
+                    </span>
+                    <span className="text-xs truncate">{v.name}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {selectedVillageId && (
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold text-sm">{t('dispute.parcel_label')}</p>
-              {parcels.length === 0 && <p className="text-gray-500 text-sm">{t('dispute.no_parcels')}</p>}
-              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2 mt-2">
+              <p className="font-extrabold text-sm text-slate-800">{t('dispute.parcel_label')}</p>
+              {parcels.length === 0 && <p className="text-slate-500 text-xs font-semibold">{t('dispute.no_parcels')}</p>}
+              <div className="flex flex-col gap-2.5 max-h-72 overflow-y-auto pr-1">
                 {parcels.map((p) => {
                   const ZoneIcon = ZONE_ICONS[p.zone_type]
                   const StatusIcon = STATUS_ICONS[p.status]
@@ -624,16 +635,18 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
                       key={p.id}
                       type="button"
                       onClick={() => setState((s) => ({ ...s, selectedParcelId: p.id }))}
-                      className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                        isSelected ? 'border-emerald-600 bg-emerald-50 scale-101' : 'border-gray-200 bg-white hover:bg-gray-50'
+                      className={`tactile-card flex items-center gap-3.5 rounded-2xl border-2 px-4 py-3.5 text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? 'tactile-card-active border-emerald-700 bg-emerald-50 text-emerald-900 shadow-md scale-101'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800'
                       }`}
                     >
-                      <ZoneIcon className={`w-7 h-7 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-gray-500'}`} />
+                      <ZoneIcon className={`w-8 h-8 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-slate-500'}`} />
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm">{t(`zone.${p.zone_type}`)}</p>
-                        <p className="text-xs text-gray-400">{p.id}</p>
+                        <p className="font-extrabold text-sm">{t(`zone.${p.zone_type}`)}</p>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{p.id}</p>
                       </div>
-                      <StatusIcon className={`w-5 h-5 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-gray-400'}`} />
+                      <StatusIcon className={`w-6 h-6 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-slate-400'}`} />
                     </button>
                   )
                 })}
@@ -645,7 +658,7 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
 
       {step === 1 && (
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-bold">{t('dispute.step_category')}</h3>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight">{t('dispute.step_category')}</h3>
           <div className="grid grid-cols-2 gap-3">
             {CATEGORIES.map((id) => {
               const isSelected = category === id
@@ -654,8 +667,10 @@ export function DisputeFormScreen({ onTriggerP2PSync }: DisputeFormScreenProps =
                   key={id}
                   type="button"
                   onClick={() => setState((s) => ({ ...s, category: id }))}
-                  className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 px-3 py-4 text-center transition-all hover:bg-gray-50 active:scale-97 ${
-                    isSelected ? 'border-emerald-600 bg-emerald-50 font-bold scale-102 shadow-sm' : 'border-gray-200 bg-white'
+                  className={`tactile-card flex flex-col items-center gap-2 rounded-2xl border-2 px-3 py-4 text-center transition-all cursor-pointer ${
+                    isSelected
+                      ? 'tactile-card-active border-emerald-700 bg-emerald-50 text-emerald-900 shadow-md scale-102 font-extrabold'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold'
                   }`}
                 >
                   <CategoryIllustration id={id} active={isSelected} />

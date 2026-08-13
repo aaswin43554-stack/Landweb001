@@ -245,8 +245,8 @@ export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 relative">
-      <div className="bg-slate-800 text-white px-4 py-5 shadow-sm">
-        <div className="flex items-center justify-between max-w-2xl mx-auto w-full">
+      <div className="bg-slate-800 text-white px-3.5 sm:px-6 py-4 sm:py-5 shadow-sm">
+        <div className="flex items-center justify-between max-w-2xl sm:max-w-3xl md:max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-3">
             <BriefcaseIcon className="w-7 h-7 shrink-0 text-slate-350" />
             <div>
@@ -274,7 +274,7 @@ export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps
               }}
               className="flex items-center gap-1 bg-emerald-700 text-white border-2 border-emerald-600 px-3 py-1.5 rounded-xl font-bold text-xs hover:bg-emerald-800 transition-all cursor-pointer shadow-sm"
             >
-              📥 Import P2P Sync (Bluetooth PIN)
+              📥 Import P2P Sync
             </button>
           </div>
         </div>
@@ -286,7 +286,7 @@ export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps
         {showImportPanel && (
           <div className="rounded-2xl border-2 border-slate-300 bg-white p-4 shadow-md flex flex-col gap-3 animate-in slide-in-from-top-3">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-slate-800 text-sm">Offline P2P Import Scanner</p>
+              <p className="font-bold text-slate-800 text-sm">Offline P2P Import</p>
               <button
                 type="button"
                 onClick={() => setShowImportPanel(false)}
@@ -297,7 +297,7 @@ export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps
             </div>
             
             <p className="text-xs text-slate-500">
-              Paste the Base64 sync code from the citizen's device below, or switch to 4-Digit Bluetooth PIN Receiver mode.
+              Import a report file received via QuickShare/Bluetooth or scan a QR code.
             </p>
 
             <button
@@ -308,7 +308,7 @@ export function FieldOfficerScreen({ onTriggerP2PSync }: FieldOfficerScreenProps
               }}
               className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
-              📶 Open 4-Digit Bluetooth PIN Receiver Card
+              📶 Open P2P Sync Modal (File / QR)
             </button>
 
             <textarea

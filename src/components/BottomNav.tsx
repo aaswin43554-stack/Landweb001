@@ -19,7 +19,7 @@ export function BottomNav({ active, onChange, iconOnly = false }: Props) {
   const { t } = useTranslations()
 
   return (
-    <nav className="sticky bottom-0 z-30 w-full bg-white border-t border-gray-200 flex shadow-lg select-none" role="tablist">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 w-full bg-white dark:bg-slate-900 border-t-2 border-slate-200 dark:border-slate-800 flex shadow-2xl select-none" role="tablist">
       {TABS.map(({ screen, Icon, labelKey }) => {
         const isActive = screen === active
         return (
@@ -31,12 +31,15 @@ export function BottomNav({ active, onChange, iconOnly = false }: Props) {
             aria-label={t(labelKey)}
             title={t(labelKey)}
             onClick={() => onChange(screen)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-all cursor-pointer touch-manipulation active:scale-95 ${
-              iconOnly ? 'py-3 pb-4' : 'py-2 pb-3.5 text-xs font-semibold'
-            } ${isActive ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] relative px-1 transition-all cursor-pointer touch-manipulation active:scale-95 ${
+              iconOnly ? 'py-3 pb-3' : 'py-2 pb-3 text-xs font-bold'
+            } ${isActive ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
           >
-            <Icon className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
-            {!iconOnly && <span className="leading-tight text-center text-[11px] sm:text-xs font-bold">{t(labelKey)}</span>}
+            {isActive && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1 bg-emerald-600 rounded-b-full shadow-sm" />
+            )}
+            <Icon className={`w-6 h-6 sm:w-7 sm:h-7 transition-transform ${isActive ? 'text-emerald-700 dark:text-emerald-400 scale-110' : 'text-slate-400'}`} />
+            {!iconOnly && <span className="leading-tight text-center text-[11px] sm:text-xs font-extrabold">{t(labelKey)}</span>}
           </button>
         )
       })}

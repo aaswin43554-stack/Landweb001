@@ -125,7 +125,7 @@ function AppContent() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
       />
 
-      <main className="flex-1 flex flex-col">
+      <main className={`flex-1 flex flex-col ${view.mode === 'citizen' ? 'pb-20 sm:pb-24' : ''}`}>
         {view.mode === 'admin' && <AdminDashboardScreen />}
         {view.mode === 'field-officer' && (
           <FieldOfficerScreen onTriggerP2PSync={() => handleTriggerP2PSync()} />

@@ -137,13 +137,13 @@ export function CaseStatusScreen() {
   const isOfflineCase = dispute?.fake_reference_number.includes('OFFLINE')
 
   return (
-    <div className="flex-1 flex flex-col gap-5 px-4 py-5 max-w-lg mx-auto w-full">
+    <div className="flex-1 flex flex-col gap-5 px-3.5 sm:px-6 py-4 sm:py-6 max-w-lg sm:max-w-xl md:max-w-2xl mx-auto w-full">
       <div className="flex items-center gap-3">
         <SearchIcon className="w-8 h-8 text-emerald-700 shrink-0" />
-        <h2 className="text-xl font-bold">{t('case.title')}</h2>
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800">{t('case.title')}</h2>
       </div>
 
-      <p className="text-sm text-gray-600">{t('case.intro')}</p>
+      <p className="text-xs sm:text-sm text-slate-600 font-semibold">{t('case.intro')}</p>
 
       <form
         className="flex flex-col gap-3"
@@ -152,7 +152,7 @@ export function CaseStatusScreen() {
           lookup(reference)
         }}
       >
-        <label htmlFor="case-reference" className="font-semibold text-sm">
+        <label htmlFor="case-reference" className="font-extrabold text-sm text-slate-800">
           {t('case.input_label')}
         </label>
         <input
@@ -161,14 +161,14 @@ export function CaseStatusScreen() {
           onChange={(e) => setReference(e.target.value)}
           placeholder="DEMO-DSP-0001"
           autoComplete="off"
-          className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white font-mono tracking-wide focus:border-emerald-600 focus:outline-none"
+          className="w-full rounded-2xl border-2 border-slate-300 px-4 py-3.5 text-base bg-white font-mono font-bold tracking-wide focus:border-emerald-600 focus:outline-none shadow-sm"
         />
 
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={!reference.trim() || isLoading}
-            className="flex-1 rounded-xl bg-emerald-700 text-white py-4 text-base font-bold active:bg-emerald-800 disabled:bg-gray-300 disabled:text-gray-500"
+            className="tactile-btn flex-1 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white py-4 text-base font-extrabold active:scale-98 disabled:bg-slate-300 disabled:text-slate-500 shadow-md transition-all cursor-pointer"
           >
             {t('case.search')}
           </button>
@@ -176,7 +176,7 @@ export function CaseStatusScreen() {
             type="button"
             onClick={() => setShowScanner(true)}
             aria-label={t('case.scan')}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-gray-300 px-4 py-4 text-sm font-bold text-gray-700 active:bg-gray-50"
+            className="tactile-btn flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 px-4 py-4 text-sm font-extrabold text-slate-700 hover:bg-slate-50 active:scale-98 shadow-sm transition-all cursor-pointer"
           >
             <QrIcon className="w-6 h-6" />
           </button>

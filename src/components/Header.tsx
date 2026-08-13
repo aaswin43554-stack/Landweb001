@@ -48,8 +48,8 @@ export function Header({
   mode,
   onSelectMode,
   onTriggerP2PSync,
-  highContrast,
-  onToggleHighContrast,
+  highContrast: _highContrast,
+  onToggleHighContrast: _onToggleHighContrast,
   iconOnlyNav,
   onToggleIconOnlyNav,
   darkMode,
@@ -127,34 +127,34 @@ export function Header({
           <button
             type="button"
             onClick={onTriggerP2PSync}
-            className="flex items-center gap-0.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] sm:text-xs shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
+            className="flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold px-3 py-1.5 rounded-full text-xs shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
           >
             📶 P2P Sync
           </button>
 
           {/* User Role Selection Dropdown */}
-          <div className="relative flex items-center gap-0.5 sm:gap-1 rounded-full border-2 border-gray-300 px-1.5 py-0.5 sm:px-2 sm:py-1 bg-white text-xs sm:text-sm font-semibold hover:bg-gray-50">
-            <BriefcaseIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
+          <div className="relative flex items-center gap-1 rounded-full border-2 border-slate-300 px-2.5 py-1 bg-white text-xs font-bold shadow-sm hover:border-slate-400">
+            <BriefcaseIcon className="w-4 h-4 text-emerald-700 shrink-0" />
             <select
               value={mode}
               onChange={(e) => onSelectMode(e.target.value as 'citizen' | 'field-officer' | 'admin')}
-              className="appearance-none bg-transparent pr-3.5 focus:outline-none cursor-pointer text-gray-800 font-bold text-[10px] sm:text-xs"
+              className="appearance-none bg-transparent pr-3.5 focus:outline-none cursor-pointer text-slate-800 font-extrabold text-xs"
               aria-label="Select user role"
             >
               <option value="citizen">Citizen</option>
               <option value="field-officer">Officer</option>
               <option value="admin">Chief (Admin)</option>
             </select>
-            <span className="text-[8px] text-gray-400 font-bold pointer-events-none pr-0.5">▼</span>
+            <span className="text-[8px] text-slate-400 font-bold pointer-events-none pr-0.5">▼</span>
           </div>
 
           {/* Direct Language Selection Dropdown */}
-          <div className="relative flex items-center gap-0.5 sm:gap-1 rounded-full border-2 border-gray-300 px-1.5 py-0.5 sm:px-2 sm:py-1 bg-white text-xs sm:text-sm font-semibold hover:bg-gray-50">
-            <GlobeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
+          <div className="relative flex items-center gap-1 rounded-full border-2 border-slate-300 px-2.5 py-1 bg-white text-xs font-bold shadow-sm hover:border-slate-400">
+            <GlobeIcon className="w-4 h-4 text-emerald-700 shrink-0" />
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as Language)}
-              className="appearance-none bg-transparent pr-3.5 focus:outline-none cursor-pointer text-gray-800 font-bold text-[10px] sm:text-xs"
+              className="appearance-none bg-transparent pr-3.5 focus:outline-none cursor-pointer text-slate-800 font-extrabold text-xs"
               aria-label="Select language"
             >
               {Object.entries(LANGUAGE_LABELS).map(([code]) => (
@@ -163,7 +163,7 @@ export function Header({
                 </option>
               ))}
             </select>
-            <span className="text-[8px] text-gray-400 font-bold pointer-events-none pr-0.5">▼</span>
+            <span className="text-[8px] text-slate-400 font-bold pointer-events-none pr-0.5">▼</span>
           </div>
 
           {/* Accessibility Settings Trigger */}
@@ -171,13 +171,13 @@ export function Header({
             <button
               type="button"
               onClick={() => setShowA11yMenu(!showA11yMenu)}
-              className={`flex items-center justify-center p-1 sm:p-1.5 rounded-full border-2 text-xs sm:text-sm font-semibold active:bg-gray-100 ${
+              className={`flex items-center justify-center p-1.5 rounded-full border-2 text-xs font-semibold active:bg-gray-100 ${
                 showA11yMenu ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-gray-300 text-gray-700'
               }`}
               aria-label="Accessibility Settings"
               aria-expanded={showA11yMenu}
             >
-              <AccessibilityIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <AccessibilityIcon className="w-4.5 h-4.5" />
             </button>
 
             {/* Accessibility Popover Panel */}
@@ -188,17 +188,6 @@ export function Header({
                 </h3>
                 
                 <div className="flex flex-col gap-3">
-                  {/* High Contrast Toggle */}
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-xs sm:text-sm font-semibold text-gray-700">High Contrast Mode</span>
-                    <input
-                      type="checkbox"
-                      checked={highContrast}
-                      onChange={onToggleHighContrast}
-                      className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300 cursor-pointer"
-                    />
-                  </label>
-
                   {/* Icon Only Navigation Toggle */}
                   <label className="flex items-center justify-between cursor-pointer">
                     <span className="text-xs sm:text-sm font-semibold text-gray-700">Icon-only Navigation</span>
@@ -343,27 +332,6 @@ export function Header({
                     </span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase">
                       {darkMode ? 'Light' : 'Dark'}
-                    </span>
-                  </button>
-
-                  {/* High Contrast Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onToggleHighContrast();
-                      setShowMobileMenu(false);
-                    }}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-900 transition-colors cursor-pointer text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 2v20a10 10 0 0 0 0-20z" fill="currentColor" />
-                      </svg>
-                      High Contrast
-                    </span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase">
-                      {highContrast ? 'On' : 'Off'}
                     </span>
                   </button>
 

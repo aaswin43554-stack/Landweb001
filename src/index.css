@@ -64,71 +64,6 @@ select {
   font-size: 1rem;
 }
 
-/* High Contrast Mode Adjustments */
-html.high-contrast body {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-}
-
-html.high-contrast .bg-white,
-html.high-contrast .bg-slate-50,
-html.high-contrast .bg-emerald-50,
-html.high-contrast .bg-amber-50,
-html.high-contrast .bg-red-50,
-html.high-contrast .bg-blue-50 {
-  background-color: #ffffff !important;
-}
-
-html.high-contrast .text-gray-400,
-html.high-contrast .text-gray-500,
-html.high-contrast .text-gray-600,
-html.high-contrast .text-slate-600,
-html.high-contrast .text-slate-500,
-html.high-contrast .text-slate-300,
-html.high-contrast .text-emerald-800,
-html.high-contrast .text-amber-800,
-html.high-contrast .text-red-800,
-html.high-contrast .text-blue-800 {
-  color: #000000 !important;
-}
-
-html.high-contrast .border-gray-200,
-html.high-contrast .border-slate-300,
-html.high-contrast .border-emerald-500,
-html.high-contrast .border-amber-500,
-html.high-contrast .border-red-500,
-html.high-contrast .border-blue-300,
-html.high-contrast .border-blue-400,
-html.high-contrast .border-amber-400,
-html.high-contrast .border-emerald-400,
-html.high-contrast .border-emerald-600,
-html.high-contrast .border-slate-400,
-html.high-contrast .border-slate-200 {
-  border-color: #000000 !important;
-  border-width: 3px !important;
-}
-
-html.high-contrast button {
-  border: 3px solid #000000 !important;
-  color: #000000 !important;
-}
-
-html.high-contrast .bg-emerald-700,
-html.high-contrast .bg-slate-800 {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-}
-
-html.high-contrast .bg-emerald-700 * {
-  color: #ffffff !important;
-}
-
-html.high-contrast select,
-html.high-contrast textarea {
-  border: 3px solid #000000 !important;
-  color: #000000 !important;
-}
-
 html, body { overflow-x: hidden; max-width: 100vw; }
 
 /* Dark Mode Adjustments */
@@ -244,4 +179,41 @@ html.dark button:not(.bg-emerald-700):not(.bg-blue-700):not(.bg-red-700):not(.bg
 html.dark svg {
   stroke: currentColor;
 }
+
+/* ============================================================================
+   TACTILE & HIGH-CONTRAST UI (Direction 2 - Rural & Field Friendly)
+   ============================================================================ */
+
+/* Tactile Big Choice Card */
+.tactile-card {
+  border-width: 2px;
+  border-radius: 1.25rem; /* 20px */
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.tactile-card:active {
+  transform: scale(0.98);
+}
+
+/* Tactile Card Active Selection State */
+.tactile-card-active {
+  border-color: #0f766e !important; /* Emerald 700 */
+  background-color: #f0fdf4 !important; /* Emerald 50 */
+  box-shadow: 0 4px 14px -2px rgba(15, 118, 110, 0.25);
+}
+
+/* Tactile Big Touch Button */
+.tactile-btn {
+  min-height: 52px;
+  border-radius: 1rem; /* 16px */
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease-out;
+}
+.tactile-btn:active {
+  transform: scale(0.98);
+}
+
 

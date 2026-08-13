@@ -102,47 +102,60 @@ export function ParcelLookupScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-5 px-4 py-5 max-w-lg mx-auto w-full">
+    <div className="flex-1 flex flex-col gap-5 px-3.5 sm:px-6 py-4 sm:py-6 max-w-lg sm:max-w-xl md:max-w-2xl mx-auto w-full">
       <div className="flex items-center gap-3">
         <SearchIcon className="w-8 h-8 text-emerald-700 shrink-0" />
-        <h2 className="text-xl font-bold">{t('lookup.title')}</h2>
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800">{t('lookup.title')}</h2>
       </div>
 
+      {/* Tactile Visual Village Cards Grid */}
       <div className="flex flex-col gap-2">
-        <label htmlFor="village-select" className="font-semibold text-sm">
-          {t('lookup.village_label')}
+        <label className="font-extrabold text-sm text-slate-700 flex items-center justify-between">
+          <span>{t('lookup.village_label')}</span>
+          <span className="text-[11px] sm:text-xs font-semibold text-emerald-700">Tap a village below:</span>
         </label>
-        <select
-          id="village-select"
-          value={selectedVillageId}
-          onChange={(e) => handleVillageChange(e.target.value)}
-          className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-base bg-white"
-        >
-          <option value="">{t('lookup.village_placeholder')}</option>
-          {villages.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name}
-            </option>
-          ))}
-        </select>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-2.5">
+          {villages.map((v) => {
+            const isSelected = v.id === selectedVillageId
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => handleVillageChange(v.id)}
+                className={`tactile-card p-3 flex items-center gap-2 text-left border-2 rounded-2xl transition-all cursor-pointer ${
+                  isSelected
+                    ? 'tactile-card-active border-emerald-700 bg-emerald-50 text-emerald-900 shadow-md scale-102'
+                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-800'
+                }`}
+              >
+                <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm shrink-0 font-bold ${isSelected ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  📍
+                </span>
+                <span className="text-xs sm:text-sm font-extrabold truncate">{v.name}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 text-gray-400 text-sm">
-        <div className="flex-1 h-px bg-gray-200" />
-        or
-        <div className="flex-1 h-px bg-gray-200" />
+      <div className="flex items-center gap-3 text-slate-400 text-xs font-bold my-1">
+        <div className="flex-1 h-0.5 bg-slate-200" />
+        OR SCAN WITH CAMERA
+        <div className="flex-1 h-0.5 bg-slate-200" />
       </div>
 
+      {/* Chunky QR Scanner Trigger Button */}
       <div className="flex flex-col gap-1">
         <button
           type="button"
           onClick={() => setShowScanner(true)}
-          className="w-full flex items-center justify-center gap-3 rounded-xl bg-emerald-700 text-white py-4 text-lg font-bold active:bg-emerald-800"
+          className="tactile-btn w-full flex items-center justify-center gap-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white py-4 text-base font-black active:scale-98 shadow-md transition-all cursor-pointer"
         >
-          <QrIcon className="w-7 h-7" />
+          <QrIcon className="w-6 h-6" />
           {t('scan.button')}
         </button>
-        <p className="text-xs text-gray-400 text-center">{t('lookup.scan_hint')}</p>
+        <p className="text-[11px] text-slate-500 font-semibold text-center mt-1">{t('lookup.scan_hint')}</p>
       </div>
 
       {showScanner && (
@@ -154,17 +167,23 @@ export function ParcelLookupScreen() {
         />
       )}
 
+      {/* Results Container */}
       <div className="flex flex-col gap-3">
-        {isLoading && <p className="text-center text-gray-400">…</p>}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-6 gap-2">
+            <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs font-bold text-emerald-800">Loading land records...</p>
+          </div>
+        )}
 
         {!isLoading && scanError && (
-          <p className="text-center text-red-700 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-3 text-sm font-semibold">
+          <p className="text-center text-red-700 bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-3 text-sm font-extrabold shadow-sm">
             {scanError}
           </p>
         )}
 
         {!isLoading && result?.kind === 'village' && result.parcels.length === 0 && (
-          <p className="text-center text-gray-500">{t('lookup.no_results')}</p>
+          <p className="text-center text-slate-500 font-semibold py-4">{t('lookup.no_results')}</p>
         )}
 
         {!isLoading && result?.kind === 'village' && result.parcels.map((p) => <ParcelCard key={p.id} parcel={p} />)}

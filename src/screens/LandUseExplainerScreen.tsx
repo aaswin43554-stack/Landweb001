@@ -220,16 +220,16 @@ export function LandUseExplainerScreen() {
   }, [selected, selectedYear, disputes])
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 gap-4 px-4 py-5 max-w-md mx-auto w-full pb-16">
+    <div className="flex-1 flex flex-col bg-slate-50 gap-4 px-3.5 sm:px-6 py-4 sm:py-6 max-w-lg sm:max-w-xl md:max-w-2xl mx-auto w-full pb-16">
       
       {/* Explanation Banner with direct audio toggle */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-5 shadow-lg flex flex-col gap-3 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col gap-3 relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4">
           <MapIcon className="w-32 h-32" />
         </div>
         <div className="flex items-start justify-between relative z-10">
           <div>
-            <h2 className="text-xl font-black tracking-tight">{t('explainer.title')}</h2>
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">{t('explainer.title')}</h2>
             <p className="text-xs text-emerald-100 font-semibold mt-1">Village zoning definitions & history log</p>
           </div>
           <PlayExplanationButton text={t('explainer.title')} />
@@ -258,7 +258,7 @@ export function LandUseExplainerScreen() {
       </div>
 
       {/* Map visualization Canvas */}
-      <div className="w-full h-80 bg-white border-2 border-gray-200 rounded-3xl relative shadow-xs overflow-hidden select-none">
+      <div className="w-full h-72 sm:h-80 md:h-96 bg-white border-2 border-gray-200 rounded-3xl relative shadow-xs overflow-hidden select-none">
         {/* Zoom controls */}
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-20">
           <button
@@ -391,6 +391,49 @@ export function LandUseExplainerScreen() {
             <span className={`cursor-pointer transition-all ${selectedYear === 2015 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2015)}>2015</span>
             <span className={`cursor-pointer transition-all ${selectedYear === 2020 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2020)}>2020</span>
             <span className={`cursor-pointer transition-all ${selectedYear === 2026 ? 'text-emerald-700 scale-105 font-black' : ''}`} onClick={() => setSelectedYear(2026)}>2026 (Current)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tactile Land Zoning Definitions Cards */}
+      <div className="flex flex-col gap-2.5 mt-2">
+        <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Land Use Classifications & Rules</h3>
+        
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* Forest */}
+          <div className="tactile-card border-2 border-emerald-300 bg-emerald-50 p-3.5 flex flex-col gap-1 text-left">
+            <div className="flex items-center gap-2">
+              <TreeIcon className="w-5 h-5 text-emerald-800" />
+              <span className="text-xs font-black text-emerald-900">Forest Reserve</span>
+            </div>
+            <p className="text-[10px] text-emerald-800 font-semibold leading-tight">Protected woodland. No private construction permitted.</p>
+          </div>
+
+          {/* Agricultural */}
+          <div className="tactile-card border-2 border-amber-300 bg-amber-50 p-3.5 flex flex-col gap-1 text-left">
+            <div className="flex items-center gap-2">
+              <CropIcon className="w-5 h-5 text-amber-800" />
+              <span className="text-xs font-black text-amber-900">Agricultural</span>
+            </div>
+            <p className="text-[10px] text-amber-800 font-semibold leading-tight">Farming & rice paddy permits. Customary lease rights.</p>
+          </div>
+
+          {/* Residential */}
+          <div className="tactile-card border-2 border-blue-300 bg-blue-50 p-3.5 flex flex-col gap-1 text-left">
+            <div className="flex items-center gap-2">
+              <HomeIcon className="w-5 h-5 text-blue-800" />
+              <span className="text-xs font-black text-blue-900">Residential</span>
+            </div>
+            <p className="text-[10px] text-blue-800 font-semibold leading-tight">Housing & family living plots. Full title allocation.</p>
+          </div>
+
+          {/* Disputed */}
+          <div className="tactile-card border-2 border-red-300 bg-red-50 p-3.5 flex flex-col gap-1 text-left">
+            <div className="flex items-center gap-2">
+              <AlertIcon className="w-5 h-5 text-red-800" />
+              <span className="text-xs font-black text-red-900">Disputed Zone</span>
+            </div>
+            <p className="text-[10px] text-red-800 font-semibold leading-tight">Active boundary conflict. Frozen until officer review.</p>
           </div>
         </div>
       </div>
